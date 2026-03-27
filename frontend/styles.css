@@ -108,12 +108,13 @@ body:has(.kiosk-shell) {
 .brand-lockup {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 24px;
   min-width: 0;
 }
 
 .brand-lockup-kiosk {
   align-self: center;
+  gap: 30px;
 }
 
 .brand-lockup-control {
@@ -122,11 +123,23 @@ body:has(.kiosk-shell) {
 }
 
 .brand-logo {
-  width: clamp(68px, 6vw, 92px);
-  height: clamp(68px, 6vw, 92px);
+  display: block;
+  width: auto;
+  height: auto;
   flex: 0 0 auto;
-  border-radius: 22px;
   box-shadow: 0 12px 26px rgba(39, 52, 67, 0.14);
+  object-fit: contain;
+  transform-origin: left center;
+}
+
+.brand-lockup-kiosk .brand-logo {
+  max-width: clamp(168px, 18vw, 280px);
+  max-height: clamp(136px, 14vw, 220px);
+}
+
+.brand-lockup-control .brand-logo {
+  max-width: clamp(140px, 14vw, 220px);
+  max-height: clamp(112px, 11vw, 168px);
 }
 
 .brand-title {
@@ -179,18 +192,22 @@ body:has(.kiosk-shell) {
 }
 
 .kiosk-shell .scoreboard {
-  max-height: 208px;
+  max-height: 228px;
+  overflow: hidden;
+  align-items: stretch;
 }
 
 .score-card {
   padding: 12px 14px;
   border-radius: 20px;
   background: rgba(18, 71, 94, 0.08);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .kiosk-shell .score-card {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   align-content: start;
 }
 
@@ -235,10 +252,18 @@ h1 {
   gap: 6px;
 }
 
+.kiosk-shell .metric-row {
+  gap: 5px;
+}
+
 .metric {
   background: rgba(255, 255, 255, 0.74);
   border-radius: 18px;
   padding: 8px 10px;
+}
+
+.kiosk-shell .metric {
+  padding: 7px 9px;
 }
 
 .metric span {
@@ -259,6 +284,10 @@ h1 {
   font-size: 1.05rem;
 }
 
+.kiosk-shell .metric strong {
+  font-size: 1rem;
+}
+
 .power-meter {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
@@ -268,6 +297,12 @@ h1 {
   padding: 4px 6px 2px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.68);
+}
+
+.kiosk-shell .power-meter {
+  gap: 5px;
+  height: 34px;
+  padding: 3px 5px 2px;
 }
 
 .power-bar {
@@ -566,6 +601,13 @@ body:has(.theme-night) {
 
   .brand-lockup {
     align-items: flex-start;
+    gap: 18px;
+  }
+
+  .brand-lockup-kiosk .brand-logo,
+  .brand-lockup-control .brand-logo {
+    max-width: clamp(128px, 32vw, 220px);
+    max-height: clamp(96px, 24vw, 168px);
   }
 
   .control-shell,

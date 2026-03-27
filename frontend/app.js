@@ -156,21 +156,22 @@ function setTheme(theme) {
   appShell.dataset.theme = theme;
 }
 
-function renderScoreboard() {
+function renderScoreboard(snapshot) {
   if (!scoreboard) {
     return;
   }
+
   scoreboard.innerHTML = snapshot.lanes
-    .map(
-      (lane) => {
-        const gapLabel = lane.rank === 1 ? "Náskok" : "Ztráta";
-        const gapValue = `${Math.abs(lane.lead_m).toFixed(1)} m`;
-        const rankBadge = lane.rank ? `<span class="rank-pill">#${lane.rank}</span>` : "";
-        return `
+    .map((lane, index) => {
+      const gapLabel = lane.rank === 1 ? "Náskok" : "Ztráta";
+      const gapValue = `${Math.abs(lane.lead_m).toFixed(1)} m`;
+      const boatBadge = `<span class="rank-pill">Kocábka ${index + 1}</span>`;
+
+      return `
         <article class="score-card">
           <div class="score-card-head">
             <h2>${lane.name}</h2>
-            ${rankBadge}
+            ${boatBadge}
           </div>
           <div class="metric-row">
             <div class="metric"><span>Metry</span><strong>${lane.distance_m.toFixed(0)}</strong></div>
@@ -185,8 +186,7 @@ function renderScoreboard() {
           <div class="power-meter" aria-hidden="true">${renderPowerMeter(lane.watts)}</div>
         </article>
       `;
-      },
-    )
+    })
     .join("");
 }
 
