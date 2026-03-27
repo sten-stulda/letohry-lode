@@ -156,12 +156,12 @@ function setTheme(theme) {
   appShell.dataset.theme = theme;
 }
 
-function renderScoreboard(snapshot) {
+function renderScoreboard(currentSnapshot = snapshot) {
   if (!scoreboard) {
     return;
   }
 
-  scoreboard.innerHTML = snapshot.lanes
+  scoreboard.innerHTML = currentSnapshot.lanes
     .map((lane, index) => {
       const gapLabel = lane.rank === 1 ? "Náskok" : "Ztráta";
       const gapValue = `${Math.abs(lane.lead_m).toFixed(1)} m`;
