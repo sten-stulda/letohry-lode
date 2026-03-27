@@ -1,0 +1,23 @@
+name: Shell Checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  bash-syntax:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run bash syntax checks
+        run: |
+          bash -n deploy/systemd/install-kiosk.sh
+          bash -n deploy/raspi/bootstrap-fresh-pi.sh
+          bash -n deploy/raspi/update-from-github.sh
+          bash -n deploy/kiosk/start-kiosk.sh
+          bash -n scripts/collect_pm3_diagnostics.sh

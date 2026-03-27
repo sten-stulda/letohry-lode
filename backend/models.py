@@ -89,6 +89,7 @@ class HistoryResponse(BaseModel):
 
 class AppStatus(BaseModel):
     app_name: str
+    version: str
     race: RaceSnapshot
     serial_ports: list[str]
     using_mock_devices: bool

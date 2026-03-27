@@ -36,6 +36,7 @@ def test_status_start_finish_and_history(tmp_path: Path) -> None:
         status_payload = client.get("/api/status")
         assert status_payload.status_code == 200
         assert status_payload.json()["race"]["status"] == "idle"
+        assert status_payload.json()["version"] == "0.1.0"
 
         start_response = client.post(
             "/api/start",

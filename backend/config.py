@@ -8,9 +8,18 @@ import os
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
+def read_project_version() -> str:
+    version_file = PROJECT_ROOT / "VERSION"
+    try:
+        return version_file.read_text(encoding="utf-8").strip() or "0.0.0"
+    except FileNotFoundError:
+        return "0.0.0"
+
+
 @dataclass(slots=True)
 class AppConfig:
     app_name: str = "LetoHry Lode"
+    version: str = read_project_version()
     host: str = os.getenv("ROWING_HOST", "0.0.0.0")
     port: int = int(os.getenv("ROWING_PORT", "8000"))
     poll_interval_s: float = float(os.getenv("ROWING_POLL_INTERVAL", "0.25"))

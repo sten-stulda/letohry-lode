@@ -1,12 +1,19 @@
 # LetoHry Lode
 
+[![Tests](https://github.com/sten-stulda/letohry-lode/actions/workflows/tests.yml/badge.svg)](https://github.com/sten-stulda/letohry-lode/actions/workflows/tests.yml)
+[![Shell Checks](https://github.com/sten-stulda/letohry-lode/actions/workflows/shell-checks.yml/badge.svg)](https://github.com/sten-stulda/letohry-lode/actions/workflows/shell-checks.yml)
+[![Release](https://img.shields.io/github/v/release/sten-stulda/letohry-lode)](https://github.com/sten-stulda/letohry-lode/releases)
+
 Open-source aplikace pro Raspberry Pi, ktera pripoji dva veslarske trenazery Concept2 s monitorem PM3 pres USB a zobrazi realtime zavod dvou virtualnich lodi na jedne obrazovce.
 
 Repozitář: https://github.com/sten-stulda/letohry-lode
 
 Licence: MIT, viz [LICENSE](/home/stulda/projekty/letohry-lode/LICENSE)
 
+Aktuální verze: `0.1.0`, viz [VERSION](/home/stulda/projekty/letohry-lode/VERSION) a [CHANGELOG.md](/home/stulda/projekty/letohry-lode/CHANGELOG.md)
+
 Automatické testy při pushi a pull requestech běží přes GitHub Actions v [tests.yml](/home/stulda/projekty/letohry-lode/.github/workflows/tests.yml).
+Kontrola shell skriptů běží v [shell-checks.yml](/home/stulda/projekty/letohry-lode/.github/workflows/shell-checks.yml) a release workflow je připravené v [release.yml](/home/stulda/projekty/letohry-lode/.github/workflows/release.yml).
 
 ## Co projekt umi
 

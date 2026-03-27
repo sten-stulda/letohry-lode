@@ -19,6 +19,7 @@ async def get_status(request: Request) -> AppStatus:
     snapshot = await race_manager.get_snapshot()
     return AppStatus(
         app_name=config.app_name,
+        version=config.version,
         race=snapshot,
         serial_ports=discover_pm3_ports(config) or list(config.default_serial_ports),
         using_mock_devices=race_manager.using_mock_devices,
