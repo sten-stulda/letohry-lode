@@ -121,7 +121,7 @@ chmod +x deploy/systemd/install-kiosk.sh deploy/kiosk/start-kiosk.sh
 
 ### Zobrazení se neotevře ve fullscreen režimu
 
-- ověřte, že je nainstalovaný `chromium-browser`
+- ověřte, že je nainstalovaný `chromium` nebo `chromium-browser`
 - zkontrolujte stav `letohry-lode-kiosk.service`
 
 ### Závod nejde spustit

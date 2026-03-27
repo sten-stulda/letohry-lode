@@ -16,12 +16,23 @@ fi
 
 echo "[1/8] Installing system packages"
 sudo apt update
+
+CHROMIUM_PACKAGE=""
+if apt-cache show chromium >/dev/null 2>&1; then
+  CHROMIUM_PACKAGE="chromium"
+elif apt-cache show chromium-browser >/dev/null 2>&1; then
+  CHROMIUM_PACKAGE="chromium-browser"
+else
+  echo "Unable to find a Chromium package (expected chromium or chromium-browser)" >&2
+  exit 1
+fi
+
 sudo apt install -y \
   git \
   python3 \
   python3-venv \
   python3-pip \
-  chromium-browser \
+  "$CHROMIUM_PACKAGE" \
   imagemagick \
   fonts-dejavu-core \
   xdotool \
