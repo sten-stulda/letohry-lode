@@ -533,6 +533,10 @@ async function loadHistory() {
   }
 
   const response = await fetch("/api/history");
+  if (!response.ok) {
+    throw new Error("Nepodarilo se nacist historii.");
+  }
+
   const payload = await response.json();
   const leaderboardEntries = isKioskPage ? payload.top_results.slice(0, 3) : payload.top_results;
 
@@ -564,33 +568,47 @@ async function loadHistory() {
     `,
   );
 
-  const diagnosticsResponse = await fetch("/api/diagnostics/status");
-  const diagnosticsPayload = await diagnosticsResponse.json();
-  renderList(
-    diagnostics,
-    [diagnosticsPayload],
-    (entry) => `
-      <div class="list-row">
-        <div>
-          <strong>${entry.enabled ? "PM3 logovani aktivni" : "PM3 logovani vypnuto"}</strong>
-          <div>${entry.total_events} udalosti</div>
+  if (diagnostics) {
+    const diagnosticsResponse = await fetch("/api/diagnostics/status");
+    if (!diagnosticsResponse.ok) {
+      throw new Error("Nepodarilo se nacist PM3 diagnostiku.");
+    }
+
+    const diagnosticsPayload = await diagnosticsResponse.json();
+    renderList(
+      diagnostics,
+      [diagnosticsPayload],
+      (entry) => `
+        <div class="list-row">
+          <div>
+            <strong>${entry.enabled ? "PM3 logovani aktivni" : "PM3 logovani vypnuto"}</strong>
+            <div>${entry.total_events} udalosti</div>
+          </div>
+          <div>
+            <strong>${entry.log_path.split("/").at(-1) || "pm3-diagnostics.log"}</strong>
+          </div>
         </div>
-        <div>
-          <strong>${entry.log_path.split("/").at(-1) || "pm3-diagnostics.log"}</strong>
-        </div>
-      </div>
-    `,
-  );
+      `,
+    );
+  }
 }
 
 async function fetchSnapshot() {
   const response = await fetch("/api/race");
+  if (!response.ok) {
+    throw new Error("Nepodarilo se nacist stav zavodu.");
+  }
+
   const payload = await response.json();
   updateSnapshot(payload);
 }
 
 async function fetchStatus() {
   const response = await fetch("/api/status");
+  if (!response.ok) {
+    throw new Error("Nepodarilo se nacist stav aplikace.");
+  }
+
   const payload = await response.json();
   populateSerialPortOptions(payload);
   if (form.useMock) {
@@ -726,11 +744,19 @@ if (clearHistoryButton) {
   clearHistoryButton.addEventListener("click", clearHistory);
 }
 
-await fetchSnapshot();
-await fetchStatus();
-await loadHistory();
-setTheme(snapshot.theme);
-connectSocket();
+async function bootstrap() {
+  setTheme(snapshot.theme);
+  connectSocket();
+
+  const tasks = [fetchSnapshot(), fetchStatus(), loadHistory()];
+  const results = await Promise.allSettled(tasks);
+
+  results.forEach((result) => {
+    if (result.status === "rejected") {
+      console.error(result.reason);
+    }
+  });
+}
 
 function animationLoop() {
   if (!canvas) {
@@ -757,3 +783,5 @@ resizeCanvas();
 if (canvas) {
   animationLoop();
 }
+
+bootstrap();
