@@ -199,9 +199,12 @@ button.primary {
 #eventLabel {
   margin: 8px 0 0;
   color: white;
-  font-size: 1rem;
+  font-size: clamp(1rem, 2vw, 1.8rem);
+  font-weight: 700;
+  max-width: min(90vw, 720px);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  text-shadow: 0 10px 24px rgba(8, 17, 25, 0.35);
 }
 
 .history-panel {

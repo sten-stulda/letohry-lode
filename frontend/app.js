@@ -183,19 +183,23 @@ function drawBoat(lane, index, ghost) {
 }
 
 function getWinnerName(currentSnapshot) {
-  return currentSnapshot.lanes.find((lane) => lane.lane_id === currentSnapshot.winner_lane)?.name ?? null;
+  return (
+    currentSnapshot.lanes.find((lane) => lane.lane_id === currentSnapshot.winner_lane)?.name
+    ?? currentSnapshot.lanes.find((lane) => lane.rank === 1)?.name
+    ?? null
+  );
 }
 
 function describeEvent(currentSnapshot) {
   const winnerName = getWinnerName(currentSnapshot);
   if (currentSnapshot.status === "finished" && winnerName) {
-    return `Vyhral ${winnerName}`;
+    return `Vyhrál ${winnerName}`;
   }
   if (currentSnapshot.event === "race_started") {
-    return "Zavod odstartovan";
+    return "Závod odstartován";
   }
   if (currentSnapshot.event === "countdown") {
-    return "Pripravit";
+    return "Připravit";
   }
   return currentSnapshot.event.replaceAll("_", " ");
 }
@@ -205,7 +209,7 @@ function updateSnapshot(nextSnapshot) {
   setTheme(snapshot.theme);
   renderScoreboard();
   drawScene();
-  countdown.textContent = snapshot.status === "countdown" ? String(snapshot.countdown_s) : snapshot.status === "finished" ? "VITEZ" : "";
+  countdown.textContent = snapshot.status === "countdown" ? String(snapshot.countdown_s) : snapshot.status === "finished" ? "VÍTĚZ" : "";
   eventLabel.textContent = describeEvent(snapshot);
 }
 
@@ -235,7 +239,7 @@ function tone(frequency, durationMs, options = {}) {
 
   oscillator.connect(gain);
   gain.connect(audio.destination);
-  oscillator.type = "triangle";
+  oscillator.type = options.type || "triangle";
   oscillator.frequency.value = frequency;
   gain.gain.setValueAtTime(options.volume ?? 0.05, now);
   if (options.fadeOut !== false) {
@@ -284,7 +288,7 @@ function playSplash() {
   filter.frequency.setValueAtTime(900, now);
   filter.Q.value = 0.8;
   gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(0.13, now + 0.05);
+  gain.gain.exponentialRampToValueAtTime(0.18, now + 0.04);
   gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
 
   source.connect(filter);
@@ -301,29 +305,35 @@ function playCrowdCheer() {
     return;
   }
 
-  const source = audio.createBufferSource();
-  const filter = audio.createBiquadFilter();
-  const gain = audio.createGain();
   const now = audio.currentTime;
 
-  source.buffer = buffer;
-  source.loop = true;
-  filter.type = "bandpass";
-  filter.frequency.setValueAtTime(1400, now);
-  filter.Q.value = 1.2;
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(0.04, now + 0.12);
-  gain.gain.exponentialRampToValueAtTime(0.012, now + 1.4);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.4);
+  [950, 1400, 2200].forEach((frequency, index) => {
+    const source = audio.createBufferSource();
+    const filter = audio.createBiquadFilter();
+    const gain = audio.createGain();
 
-  source.connect(filter);
-  filter.connect(gain);
-  gain.connect(audio.destination);
-  source.start(now);
-  source.stop(now + 2.45);
+    source.buffer = buffer;
+    source.loop = true;
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(frequency, now);
+    filter.Q.value = 0.9 + index * 0.25;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.03 + index * 0.018, now + 0.12 + index * 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.018 + index * 0.004, now + 1.9);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 3.8);
 
-  [780, 920, 1040, 1180].forEach((frequency, index) => {
-    tone(frequency, 180 + index * 30, { volume: 0.018 + index * 0.005 });
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(audio.destination);
+    source.start(now);
+    source.stop(now + 3.85);
+  });
+
+  [620, 760, 890, 1040, 1180].forEach((frequency, index) => {
+    tone(frequency, 220 + index * 35, {
+      volume: 0.025 + index * 0.008,
+      type: index % 2 === 0 ? "triangle" : "sawtooth",
+    });
   });
 }
 
@@ -334,6 +344,16 @@ function playVictoryCue() {
   setTimeout(() => tone(783.99, 560, { volume: 0.04 }), 340);
 }
 
+function playCountdownCue(second) {
+  const sequence = {
+    3: 740,
+    2: 880,
+    1: 1046,
+  };
+  const frequency = sequence[second] || 880;
+  tone(frequency, second === 1 ? 220 : 150, { volume: 0.06, type: "square" });
+}
+
 function handleEventSounds(nextSnapshot) {
   const cueKey = nextSnapshot.event === "countdown" ? `countdown:${nextSnapshot.countdown_s}` : nextSnapshot.event;
   if (cueKey === lastSoundCue) {
@@ -342,12 +362,12 @@ function handleEventSounds(nextSnapshot) {
   lastSoundCue = cueKey;
 
   if (nextSnapshot.event === "countdown") {
-    tone(880, 120);
+    playCountdownCue(nextSnapshot.countdown_s);
   }
   if (nextSnapshot.event === "race_started") {
     playSplash();
-    setTimeout(() => tone(1240, 240, { volume: 0.045 }), 120);
-    setTimeout(playCrowdCheer, 180);
+    tone(1240, 240, { volume: 0.055, type: "sawtooth" });
+    setTimeout(playCrowdCheer, 40);
   }
   if (nextSnapshot.event === "race_finished") {
     playVictoryCue();
@@ -436,6 +456,7 @@ async function startRace() {
   }
   const nextSnapshot = await response.json();
   updateSnapshot(nextSnapshot);
+  handleEventSounds(nextSnapshot);
 }
 
 async function resetRace() {
@@ -480,8 +501,8 @@ function connectSocket() {
   socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/race`);
   socket.addEventListener("message", (event) => {
     const nextSnapshot = JSON.parse(event.data);
-    handleEventSounds(nextSnapshot);
     updateSnapshot(nextSnapshot);
+    handleEventSounds(nextSnapshot);
     if (nextSnapshot.event === "race_finished") {
       loadHistory();
     }
