@@ -208,13 +208,13 @@ class RaceManager:
     def _refresh_ranks_and_lead(self, lane_distances: list[float]) -> None:
         ranking = sorted(enumerate(lane_distances), key=lambda item: item[1], reverse=True)
         leader_distance = ranking[0][1] if ranking else 0.0
+        second_distance = ranking[1][1] if len(ranking) > 1 else leader_distance
+        leader_gap = leader_distance - second_distance
         for rank, (index, distance) in enumerate(ranking, start=1):
             lane = self.snapshot.lanes[index]
             lane.rank = rank
-            lane.lead_m = leader_distance - distance
-        self.snapshot.lead_m = 0.0
-        if len(ranking) > 1:
-            self.snapshot.lead_m = ranking[0][1] - ranking[1][1]
+            lane.lead_m = leader_gap if rank == 1 else distance - leader_distance
+        self.snapshot.lead_m = leader_gap
 
     async def _finish_race(self, request: StartRaceRequest) -> None:
         self.snapshot.status = "finished"

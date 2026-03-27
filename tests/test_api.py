@@ -31,6 +31,18 @@ def wait_for_race_finish(client: TestClient, timeout_s: float = 5.0) -> dict:
     raise AssertionError("Race did not finish within timeout.")
 
 
+def wait_for_race_progress(client: TestClient, timeout_s: float = 5.0) -> dict:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        payload = client.get("/api/race").json()
+        if payload["status"] == "racing":
+            ranked_lanes = [lane for lane in payload["lanes"] if lane["rank"] in {1, 2}]
+            if len(ranked_lanes) == 2 and any(lane["lead_m"] > 0 for lane in ranked_lanes):
+                return payload
+        time.sleep(0.05)
+    raise AssertionError("Race did not produce measurable lead within timeout.")
+
+
 def test_status_start_finish_and_history(tmp_path: Path) -> None:
     with create_test_client(tmp_path) as client:
         status_payload = client.get("/api/status")
@@ -51,6 +63,12 @@ def test_status_start_finish_and_history(tmp_path: Path) -> None:
         )
         assert start_response.status_code == 200
         assert start_response.json()["status"] == "countdown"
+
+        racing_payload = wait_for_race_progress(client)
+        leader_lane = next(lane for lane in racing_payload["lanes"] if lane["rank"] == 1)
+        trailing_lane = next(lane for lane in racing_payload["lanes"] if lane["rank"] == 2)
+        assert leader_lane["lead_m"] > 0
+        assert trailing_lane["lead_m"] < 0
 
         finished_payload = wait_for_race_finish(client)
         assert finished_payload["winner_lane"] == 2

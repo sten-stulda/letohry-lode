@@ -195,6 +195,32 @@ h1 {
   font-size: 1.05rem;
 }
 
+.power-meter {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  align-items: end;
+  gap: 5px;
+  height: 28px;
+  padding: 2px 0 0;
+}
+
+.power-bar {
+  display: block;
+  height: calc(8px + (var(--bar-index) * 2px));
+  border-radius: 999px;
+  background: rgba(19, 34, 56, 0.12);
+  transition: background-color 120ms ease, transform 120ms ease;
+}
+
+.power-bar.is-active {
+  background: linear-gradient(180deg, #ffd166 0%, #ef7d32 100%);
+  box-shadow: 0 4px 10px rgba(239, 125, 50, 0.24);
+}
+
+.performance-lite .power-bar.is-active {
+  box-shadow: none;
+}
+
 .eyebrow {
   margin: 0 0 8px;
   text-transform: uppercase;

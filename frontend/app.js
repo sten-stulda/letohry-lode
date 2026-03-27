@@ -95,6 +95,20 @@ function formatPace(seconds) {
   return `${formatTime(seconds)}/500m`;
 }
 
+function formatWatts(watts) {
+  return `${Math.round(watts || 0)} W`;
+}
+
+function renderPowerMeter(watts) {
+  const normalizedWatts = Math.max(0, Math.min(Number(watts) || 0, 500));
+  const activeBars = Math.max(1, Math.ceil(normalizedWatts / 62.5));
+
+  return Array.from({ length: 8 }, (_, index) => {
+    const activeClass = index < activeBars ? " is-active" : "";
+    return `<span class="power-bar${activeClass}" style="--bar-index:${index + 1}"></span>`;
+  }).join("");
+}
+
 function setTheme(theme) {
   if (!appShell) {
     return;
@@ -110,7 +124,10 @@ function renderScoreboard() {
   }
   scoreboard.innerHTML = snapshot.lanes
     .map(
-      (lane) => `
+      (lane) => {
+        const gapLabel = lane.rank === 1 ? "Náskok" : "Ztráta";
+        const gapValue = `${Math.abs(lane.lead_m).toFixed(1)} m`;
+        return `
         <article class="score-card">
           <div class="eyebrow">Lane ${lane.lane_id} ${lane.rank ? `• #${lane.rank}` : ""}</div>
           <h2>${lane.name}</h2>
@@ -121,12 +138,14 @@ function renderScoreboard() {
           </div>
           <div class="metric-row">
             <div class="metric"><span>Cas</span><strong>${formatTime(lane.elapsed_s)}</strong></div>
-            <div class="metric"><span>Naskok</span><strong>${lane.lead_m.toFixed(1)} m</strong></div>
-            <div class="metric"><span>Body</span><strong>${lane.bonus_points}</strong></div>
+            <div class="metric"><span>${gapLabel}</span><strong>${gapValue}</strong></div>
+            <div class="metric"><span>Výkon</span><strong>${formatWatts(lane.watts)}</strong></div>
           </div>
+          <div class="power-meter" aria-hidden="true">${renderPowerMeter(lane.watts)}</div>
           <div class="eyebrow">${lane.interval_phase ? `Faze: ${lane.interval_phase}` : lane.status}</div>
         </article>
-      `,
+      `;
+      },
     )
     .join("");
 }
