@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from ..models import AppStatus, DiagnosticsStatus, HistoryResponse, RaceSnapshot, StartRaceRequest
 from ..pm3.device import discover_pm3_ports
 
 
 router = APIRouter()
+
+
+@router.get("/control", include_in_schema=False)
+async def get_control_panel(request: Request) -> FileResponse:
+    frontend_dir = Path(request.app.state.config.frontend_dir)
+    return FileResponse(frontend_dir / "control.html")
 
 
 @router.get("/api/status", response_model=AppStatus)

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LetoHry Lode | Ovládání</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell control-shell theme-river" data-theme="river">
+      <section class="hud-panel">
+        <div>
+          <p class="eyebrow">Ovládací panel</p>
+          <h1>LetoHry Lode</h1>
+          <p class="panel-copy">Nastavení závodu, start a reset jsou oddělené od prezentačního kiosku.</p>
+        </div>
+        <div class="control-grid">
+          <label>
+            Hráč 1
+            <input id="player1" value="Veslař 1" maxlength="20" />
+          </label>
+          <label>
+            Hráč 2
+            <input id="player2" value="Veslař 2" maxlength="20" />
+          </label>
+          <label>
+            Trať
+            <select id="distance">
+              <option value="500">500 m</option>
+              <option value="1000" selected>1000 m</option>
+              <option value="2000">2000 m</option>
+            </select>
+          </label>
+          <label>
+            Režim
+            <select id="mode">
+              <option value="realtime">Realtime</option>
+              <option value="ghost">Ghost</option>
+              <option value="interval">Interval</option>
+            </select>
+          </label>
+          <label>
+            Ghost
+            <select id="ghostSource">
+              <option value="none">Bez ghosta</option>
+              <option value="previous">Předchozí výkon</option>
+              <option value="personal_best">Osobní rekord</option>
+            </select>
+          </label>
+          <label>
+            Téma
+            <select id="theme">
+              <option value="river">Řeka</option>
+              <option value="lake">Jezero</option>
+              <option value="night">Noc</option>
+            </select>
+          </label>
+          <label>
+            Interval
+            <select id="intervalPreset">
+              <option value="30,30">30 s / 30 s</option>
+              <option value="60,60">60 s / 60 s</option>
+            </select>
+          </label>
+          <label class="toggle-label">
+            <span>Mock PM3</span>
+            <input id="useMock" type="checkbox" checked />
+          </label>
+        </div>
+        <div class="button-row">
+          <button id="startButton" class="primary">Start</button>
+          <button id="resetButton">Reset</button>
+        </div>
+        <div class="button-row utility-row">
+          <a class="link-button" href="/" target="_blank" rel="noreferrer">Otevřít kiosk</a>
+          <a class="link-button" href="/control">Obnovit panel</a>
+        </div>
+      </section>
+
+      <section class="admin-layout">
+        <section class="status-panel">
+          <div class="panel-heading">
+            <p class="eyebrow">Živý stav</p>
+          </div>
+          <div class="status-hero">
+            <span id="countdown">3</span>
+            <p id="eventLabel">Připraveno</p>
+          </div>
+          <div class="scoreboard" id="scoreboard"></div>
+        </section>
+
+        <section class="history-panel">
+          <div>
+            <div class="panel-heading">
+              <p class="eyebrow">Leaderboard</p>
+              <button id="exportLeaderboardCsvButton" class="secondary-action">Leaderboard CSV</button>
+            </div>
+            <div id="leaderboard"></div>
+          </div>
+          <div>
+            <div class="panel-heading">
+              <p class="eyebrow">Poslední jízdy</p>
+              <button id="exportCsvButton" class="secondary-action">Export CSV</button>
+            </div>
+            <div id="history"></div>
+          </div>
+          <div>
+            <div class="panel-heading">
+              <p class="eyebrow">Diagnostika</p>
+              <button id="exportDiagnosticsButton" class="secondary-action">PM3 log</button>
+            </div>
+            <div id="diagnostics"></div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

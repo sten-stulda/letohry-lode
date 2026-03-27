@@ -1,5 +1,5 @@
 const canvas = document.getElementById("raceCanvas");
-const context = canvas.getContext("2d");
+const context = canvas?.getContext("2d") ?? null;
 const appShell = document.querySelector(".app-shell");
 const scoreboard = document.getElementById("scoreboard");
 const leaderboard = document.getElementById("leaderboard");
@@ -69,6 +69,9 @@ let waterPhase = 0;
 appShell.classList.add(`performance-${performanceMode}`);
 
 function resizeCanvas() {
+  if (!canvas) {
+    return;
+  }
   const rect = canvas.getBoundingClientRect();
   const width = Math.max(320, Math.round(rect.width * renderSettings.resolutionScale));
   const height = Math.max(180, Math.round(rect.height * renderSettings.resolutionScale));
@@ -93,12 +96,18 @@ function formatPace(seconds) {
 }
 
 function setTheme(theme) {
+  if (!appShell) {
+    return;
+  }
   appShell.classList.remove("theme-river", "theme-lake", "theme-night");
   appShell.classList.add(`theme-${theme}`);
   appShell.dataset.theme = theme;
 }
 
 function renderScoreboard() {
+  if (!scoreboard) {
+    return;
+  }
   scoreboard.innerHTML = snapshot.lanes
     .map(
       (lane) => `
@@ -123,6 +132,9 @@ function renderScoreboard() {
 }
 
 function renderList(element, items, formatter) {
+  if (!element) {
+    return;
+  }
   element.className = "list-card";
   element.innerHTML = items.length
     ? items.map(formatter).join("")
@@ -130,6 +142,9 @@ function renderList(element, items, formatter) {
 }
 
 function drawScene() {
+  if (!canvas || !context) {
+    return;
+  }
   const width = canvas.width;
   const height = canvas.height;
   context.clearRect(0, 0, width, height);
@@ -249,10 +264,33 @@ function describeEvent(currentSnapshot) {
 function updateSnapshot(nextSnapshot) {
   snapshot = nextSnapshot;
   setTheme(snapshot.theme);
+  syncFormFromSnapshot(snapshot);
   renderScoreboard();
   drawScene();
-  countdown.textContent = snapshot.status === "countdown" ? String(snapshot.countdown_s) : snapshot.status === "finished" ? "VÍTĚZ" : "";
-  eventLabel.textContent = describeEvent(snapshot);
+  if (countdown) {
+    countdown.textContent = snapshot.status === "countdown" ? String(snapshot.countdown_s) : snapshot.status === "finished" ? "VÍTĚZ" : "";
+  }
+  if (eventLabel) {
+    eventLabel.textContent = describeEvent(snapshot);
+  }
+}
+
+function syncFormFromSnapshot(currentSnapshot) {
+  if (!form.player1 || !form.player2 || !form.distance || !form.mode || !form.theme || !form.ghostSource) {
+    return;
+  }
+
+  if (currentSnapshot.lanes.length >= 2) {
+    form.player1.value = currentSnapshot.lanes[0].name || form.player1.value;
+    form.player2.value = currentSnapshot.lanes[1].name || form.player2.value;
+  }
+
+  form.distance.value = String(currentSnapshot.distance_m || 1000);
+  form.mode.value = currentSnapshot.mode || "realtime";
+  form.theme.value = currentSnapshot.theme || "river";
+  if (form.ghostSource.value === "") {
+    form.ghostSource.value = "none";
+  }
 }
 
 function getAudioContext() {
@@ -417,6 +455,10 @@ function handleEventSounds(nextSnapshot) {
 }
 
 async function loadHistory() {
+  if (!leaderboard && !history && !diagnostics) {
+    return;
+  }
+
   const response = await fetch("/api/history");
   const payload = await response.json();
 
@@ -474,6 +516,10 @@ async function fetchSnapshot() {
 }
 
 async function startRace() {
+  if (!form.player1 || !form.player2 || !form.distance || !form.mode || !form.theme || !form.ghostSource || !form.useMock || !form.intervalPreset) {
+    return;
+  }
+
   const [sprint, rest] = form.intervalPreset.value.split(",").map(Number);
   const payload = {
     player_names: [form.player1.value || "Veslar 1", form.player2.value || "Veslar 2"],
@@ -509,8 +555,8 @@ async function resetRace() {
 }
 
 function downloadCsv() {
-  const distance = Number(form.distance.value);
-  const playerName = form.player1.value.trim();
+  const distance = Number(form.distance?.value ?? snapshot.distance_m);
+  const playerName = form.player1?.value.trim() ?? "";
   const params = new URLSearchParams();
 
   if (Number.isFinite(distance) && distance > 0) {
@@ -525,7 +571,7 @@ function downloadCsv() {
 }
 
 function downloadLeaderboardCsv() {
-  const distance = Number(form.distance.value);
+  const distance = Number(form.distance?.value ?? snapshot.distance_m);
   const params = new URLSearchParams();
   if (Number.isFinite(distance) && distance > 0) {
     params.set("distance_m", String(distance));
@@ -552,12 +598,24 @@ function connectSocket() {
   socket.addEventListener("close", () => setTimeout(connectSocket, 1200));
 }
 
-form.theme.addEventListener("change", () => setTheme(form.theme.value));
-form.startButton.addEventListener("click", startRace);
-form.resetButton.addEventListener("click", resetRace);
-exportCsvButton.addEventListener("click", downloadCsv);
-exportLeaderboardCsvButton.addEventListener("click", downloadLeaderboardCsv);
-exportDiagnosticsButton.addEventListener("click", downloadDiagnosticsLog);
+if (form.theme) {
+  form.theme.addEventListener("change", () => setTheme(form.theme.value));
+}
+if (form.startButton) {
+  form.startButton.addEventListener("click", startRace);
+}
+if (form.resetButton) {
+  form.resetButton.addEventListener("click", resetRace);
+}
+if (exportCsvButton) {
+  exportCsvButton.addEventListener("click", downloadCsv);
+}
+if (exportLeaderboardCsvButton) {
+  exportLeaderboardCsvButton.addEventListener("click", downloadLeaderboardCsv);
+}
+if (exportDiagnosticsButton) {
+  exportDiagnosticsButton.addEventListener("click", downloadDiagnosticsLog);
+}
 
 await fetchSnapshot();
 await loadHistory();
@@ -565,6 +623,9 @@ setTheme(snapshot.theme);
 connectSocket();
 
 function animationLoop() {
+  if (!canvas) {
+    return;
+  }
   requestAnimationFrame(animationLoop);
   const now = performance.now();
   const frameInterval = 1000 / renderSettings.targetFps;
@@ -583,4 +644,6 @@ function animationLoop() {
 
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
-animationLoop();
+if (canvas) {
+  animationLoop();
+}

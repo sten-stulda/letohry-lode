@@ -128,7 +128,9 @@ Pokud promene nenastavis, backend se pri realnem zavodu pokusi PM3 sam najit pod
 python run.py
 ```
 
-6. Otevri na Raspberry Pi fullscreen browser na `http://127.0.0.1:8000`.
+6. Otevri na Raspberry Pi fullscreen kiosk na `http://127.0.0.1:8000`.
+
+Ovládací stránka pro nastavení závodu, start a reset běží odděleně na `http://127.0.0.1:8000/control`.
 
 ### Automatizace pro ciste Raspberry Pi
 

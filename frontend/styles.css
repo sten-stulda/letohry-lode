@@ -37,6 +37,7 @@ body {
 
 .hud-panel,
 .history-panel,
+.status-panel,
 .track-frame,
 .scoreboard {
   border: 1px solid var(--line);
@@ -59,10 +60,48 @@ body {
   padding: 24px;
 }
 
+.status-panel {
+  background: var(--panel-strong);
+  padding: 24px;
+}
+
+.kiosk-shell {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 24px;
+}
+
+.control-shell {
+  grid-template-columns: 380px minmax(0, 1fr);
+}
+
 .race-layout {
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 18px;
+}
+
+.kiosk-shell .race-layout {
+  min-height: calc(100vh - 48px);
+  grid-template-rows: auto auto 1fr;
+}
+
+.admin-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.kiosk-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  padding: 6px 4px 0;
+}
+
+.panel-copy {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .scoreboard {
@@ -162,6 +201,10 @@ button {
   font-weight: 700;
 }
 
+a {
+  color: inherit;
+}
+
 button.primary {
   background: linear-gradient(135deg, var(--accent) 0%, #e48f40 100%);
   color: white;
@@ -172,6 +215,23 @@ button.primary {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.utility-row {
+  margin-top: 12px;
+}
+
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid rgba(19, 34, 56, 0.15);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.88);
+  text-decoration: none;
+  font-weight: 700;
 }
 
 .toggle-label {
@@ -205,6 +265,27 @@ button.primary {
   place-items: center;
   text-align: center;
   pointer-events: none;
+}
+
+.status-hero {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 18px;
+  padding: 24px;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.45), transparent),
+    linear-gradient(180deg, var(--water-a) 0%, var(--water-b) 55%, var(--water-c) 100%);
+  text-align: center;
+}
+
+.status-panel #countdown {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.status-panel #eventLabel {
+  color: white;
 }
 
 #countdown {
@@ -311,6 +392,11 @@ body:has(.theme-night) {
   .app-shell {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto;
+  }
+
+  .control-shell,
+  .admin-layout {
+    grid-template-columns: 1fr;
   }
 
   .track-frame {

@@ -65,6 +65,15 @@ def test_status_start_finish_and_history(tmp_path: Path) -> None:
         assert len(history_json["top_results"]) >= 2
 
 
+def test_control_panel_page_is_served(tmp_path: Path) -> None:
+    with create_test_client(tmp_path) as client:
+        response = client.get("/control")
+
+        assert response.status_code == 200
+        assert "Ovládací panel" in response.text
+        assert 'id="startButton"' in response.text
+
+
 def test_websocket_stream_delivers_race_updates(tmp_path: Path) -> None:
     with create_test_client(tmp_path) as client:
         with client.websocket_connect("/ws/race") as websocket:
