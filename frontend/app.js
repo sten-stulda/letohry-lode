@@ -315,7 +315,7 @@ function getWinnerName(currentSnapshot) {
 function describeEvent(currentSnapshot) {
   const winnerName = getWinnerName(currentSnapshot);
   if (currentSnapshot.status === "finished" && winnerName) {
-    return `Vyhrál ${winnerName}`;
+    return winnerName;
   }
   if (currentSnapshot.status === "racing" || currentSnapshot.event === "telemetry") {
     return "";
