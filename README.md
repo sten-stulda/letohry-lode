@@ -135,9 +135,9 @@ python run.py
 Po prvnim bootu lze pouzit bootstrap skript:
 
 ```bash
-cd /home/pi/letohry-lode
+cd /home/stulda/letohry-lode
 chmod +x deploy/raspi/bootstrap-fresh-pi.sh
-./deploy/raspi/bootstrap-fresh-pi.sh /home/pi/letohry-lode
+./deploy/raspi/bootstrap-fresh-pi.sh /home/stulda/letohry-lode
 ```
 
 Pokud repozitar jeste neni na Raspberry Pi naklonovany, je vhodne ho nejdriv naklonovat nebo bootstrap skriptu predat URL repozitare. Prakticky postup je rozepsany v [deploy/raspi/INSTALL_ON_FRESH_PI.md](/home/stulda/projekty/letohry-lode/deploy/raspi/INSTALL_ON_FRESH_PI.md).
@@ -264,7 +264,7 @@ Predpoklady:
 - projekt je naklonovany v ceste, kterou predas instalacnimu skriptu
 - virtualenv je v dane slozce projektu v `.venv`
 - instalacni skript vyrenderuje spravneho uzivatele i domovsky adresar podle aktualniho prostredi
-- v systemu je nainstalovany `chromium-browser`
+- v systemu je nainstalovany `chromium` nebo `chromium-browser`
 
 Instalace sluzeb:
 
