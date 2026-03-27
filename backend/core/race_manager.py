@@ -163,14 +163,33 @@ class RaceManager:
             await asyncio.sleep(self.config.poll_interval_s)
 
     def _update_lane(self, lane: TelemetryFrame, frame: PM3Frame, request: StartRaceRequest, total_distance: float) -> None:
+        previous_distance = lane.distance_m
+        previous_elapsed = lane.elapsed_s
+
+        if lane.status == "finished":
+            lane.connected = True
+            return
+
+        next_distance = min(frame.distance_m, total_distance)
+        crossed_finish = previous_distance < total_distance <= frame.distance_m
+
         lane.connected = True
-        lane.elapsed_s = frame.elapsed_s
-        lane.distance_m = min(frame.distance_m, total_distance)
+        lane.distance_m = next_distance
         lane.pace_per_500_s = frame.pace_per_500_s
         lane.stroke_rate = frame.stroke_rate
         lane.watts = frame.watts
         lane.progress = min(lane.distance_m / total_distance, 1.0)
-        lane.status = "finished" if lane.progress >= 1.0 else "racing"
+
+        if crossed_finish and frame.distance_m > previous_distance and frame.elapsed_s >= previous_elapsed:
+            finish_fraction = (total_distance - previous_distance) / (frame.distance_m - previous_distance)
+            lane.elapsed_s = previous_elapsed + ((frame.elapsed_s - previous_elapsed) * finish_fraction)
+            lane.distance_m = total_distance
+            lane.progress = 1.0
+            lane.status = "finished"
+        else:
+            lane.elapsed_s = frame.elapsed_s
+            lane.status = "finished" if lane.progress >= 1.0 else "racing"
+
         lane.bonus_points = self._calculate_bonus_points(lane, request.distance_m)
         lane.achievements = []
         if request.mode == "interval":
@@ -202,6 +221,9 @@ class RaceManager:
         self.snapshot.event = "race_finished"
         ordered_lanes = sorted(self.snapshot.lanes, key=lambda lane: lane.elapsed_s)
         self.snapshot.winner_lane = ordered_lanes[0].lane_id if ordered_lanes else None
+        for rank, lane in enumerate(ordered_lanes, start=1):
+            lane.rank = rank
+            lane.lead_m = 0.0
 
         for lane in ordered_lanes:
             achievements = self._resolve_achievements(lane, request.distance_m)

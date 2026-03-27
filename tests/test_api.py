@@ -53,7 +53,9 @@ def test_status_start_finish_and_history(tmp_path: Path) -> None:
         assert start_response.json()["status"] == "countdown"
 
         finished_payload = wait_for_race_finish(client)
-        assert finished_payload["winner_lane"] in {1, 2}
+        assert finished_payload["winner_lane"] == 2
+        winner_lane = next(lane for lane in finished_payload["lanes"] if lane["lane_id"] == finished_payload["winner_lane"])
+        assert winner_lane["rank"] == 1
         assert all(lane["status"] == "finished" for lane in finished_payload["lanes"])
 
         history_payload = client.get("/api/history")
