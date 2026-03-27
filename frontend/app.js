@@ -214,6 +214,10 @@ function drawScene() {
   }
 }
 
+function getRenderedLaneCount() {
+  return snapshot.ghost_lane ? 3 : Math.max(snapshot.lanes.length, 2);
+}
+
 function drawWater(width, height) {
   for (let index = 0; index < renderSettings.waterBands; index += 1) {
     const y = 80 + index * renderSettings.waterStepY;
@@ -232,8 +236,9 @@ function drawWater(width, height) {
 }
 
 function drawTrack(width, height) {
-  const laneHeight = height / 3;
-  for (let laneIndex = 0; laneIndex < 3; laneIndex += 1) {
+  const laneCount = getRenderedLaneCount();
+  const laneHeight = height / laneCount;
+  for (let laneIndex = 0; laneIndex < laneCount; laneIndex += 1) {
     const top = laneIndex * laneHeight;
     context.strokeStyle = "rgba(255,255,255,0.18)";
     context.setLineDash([12, 10]);
@@ -255,8 +260,9 @@ function drawTrack(width, height) {
 function drawBoat(lane, index, ghost) {
   const width = canvas.width;
   const height = canvas.height;
-  const laneHeight = height / 3;
-  const centerY = laneHeight * index + laneHeight / 2;
+  const laneCount = getRenderedLaneCount();
+  const laneHeight = height / laneCount;
+  const centerY = laneHeight * index + laneHeight * 0.58;
   const x = 90 + lane.progress * (width - 220);
   const hullColor = ghost ? "rgba(255,255,255,0.55)" : index === 0 ? "#f9f2de" : "#ffd28b";
   const sailColor = ghost ? "rgba(240,240,255,0.3)" : index === 0 ? "#c95f32" : "#123956";
@@ -292,7 +298,7 @@ function drawBoat(lane, index, ghost) {
 
   context.fillStyle = "rgba(255,255,255,0.95)";
   context.font = `${isLiteMode ? 500 : 600} ${isLiteMode ? 18 : 24}px 'Chakra Petch'`;
-  context.fillText(lane.name, -50, -70);
+  context.fillText(lane.name, -50, -54);
   context.restore();
 }
 
