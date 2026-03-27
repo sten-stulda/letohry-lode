@@ -2,7 +2,7 @@
 
 [![Tests](https://github.com/sten-stulda/letohry-lode/actions/workflows/tests.yml/badge.svg)](https://github.com/sten-stulda/letohry-lode/actions/workflows/tests.yml)
 [![Shell Checks](https://github.com/sten-stulda/letohry-lode/actions/workflows/shell-checks.yml/badge.svg)](https://github.com/sten-stulda/letohry-lode/actions/workflows/shell-checks.yml)
-[![Version](https://img.shields.io/badge/version-0.1.0-0A7A5C)](/home/stulda/projekty/letohry-lode/VERSION)
+[![Release](https://img.shields.io/github/v/release/sten-stulda/letohry-lode?cacheSeconds=60)](https://github.com/sten-stulda/letohry-lode/releases/tag/v0.1.0)
 
 Open-source aplikace pro Raspberry Pi, ktera pripoji dva veslarske trenazery Concept2 s monitorem PM3 pres USB a zobrazi realtime zavod dvou virtualnich lodi na jedne obrazovce.
 
