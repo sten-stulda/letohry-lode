@@ -10,6 +10,29 @@ const eventLabel = document.getElementById("eventLabel");
 const exportCsvButton = document.getElementById("exportCsvButton");
 const exportLeaderboardCsvButton = document.getElementById("exportLeaderboardCsvButton");
 const exportDiagnosticsButton = document.getElementById("exportDiagnosticsButton");
+const searchParams = new URLSearchParams(location.search);
+
+function resolvePerformanceMode() {
+  const explicitMode = searchParams.get("performance");
+  if (explicitMode === "lite" || explicitMode === "full") {
+    return explicitMode;
+  }
+
+  const cpuCount = navigator.hardwareConcurrency || 4;
+  const raspberryLike = /arm|aarch64|raspberry/i.test(navigator.userAgent);
+  return cpuCount <= 4 || raspberryLike ? "lite" : "full";
+}
+
+const performanceMode = resolvePerformanceMode();
+const isLiteMode = performanceMode === "lite";
+const renderSettings = {
+  waterBands: isLiteMode ? 7 : 18,
+  waterStepX: isLiteMode ? 72 : 40,
+  waterStepY: isLiteMode ? 56 : 36,
+  waterAmplitude: isLiteMode ? 2.5 : 4,
+  targetFps: isLiteMode ? 24 : 60,
+  resolutionScale: isLiteMode ? 0.72 : 1,
+};
 
 const form = {
   player1: document.getElementById("player1"),
@@ -39,6 +62,22 @@ let socket;
 let audioContext;
 let splashBuffer;
 let lastSoundCue = "";
+let lastFrameTime = 0;
+let lastWaterTick = 0;
+let waterPhase = 0;
+
+appShell.classList.add(`performance-${performanceMode}`);
+
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  const width = Math.max(320, Math.round(rect.width * renderSettings.resolutionScale));
+  const height = Math.max(180, Math.round(rect.height * renderSettings.resolutionScale));
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+    drawScene();
+  }
+}
 
 function formatTime(seconds) {
   if (!Number.isFinite(seconds)) {
@@ -104,14 +143,17 @@ function drawScene() {
 }
 
 function drawWater(width, height) {
-  for (let index = 0; index < 18; index += 1) {
-    const y = 80 + index * 36;
+  for (let index = 0; index < renderSettings.waterBands; index += 1) {
+    const y = 80 + index * renderSettings.waterStepY;
     context.strokeStyle = `rgba(255,255,255,${0.05 + index * 0.005})`;
-    context.lineWidth = 2;
+    context.lineWidth = isLiteMode ? 1.5 : 2;
     context.beginPath();
     context.moveTo(0, y);
-    for (let x = 0; x <= width; x += 40) {
-      context.lineTo(x, y + Math.sin((x + performance.now() * 0.08 + index * 25) / 60) * 4);
+    for (let x = 0; x <= width; x += renderSettings.waterStepX) {
+      context.lineTo(
+        x,
+        y + Math.sin((x + waterPhase + index * 25) / (isLiteMode ? 72 : 60)) * renderSettings.waterAmplitude,
+      );
     }
     context.stroke();
   }
@@ -177,7 +219,7 @@ function drawBoat(lane, index, ghost) {
   context.stroke();
 
   context.fillStyle = "rgba(255,255,255,0.95)";
-  context.font = "600 24px 'Chakra Petch'";
+  context.font = `${isLiteMode ? 500 : 600} ${isLiteMode ? 18 : 24}px 'Chakra Petch'`;
   context.fillText(lane.name, -50, -70);
   context.restore();
 }
@@ -523,8 +565,22 @@ setTheme(snapshot.theme);
 connectSocket();
 
 function animationLoop() {
-  drawScene();
   requestAnimationFrame(animationLoop);
+  const now = performance.now();
+  const frameInterval = 1000 / renderSettings.targetFps;
+  if (now - lastFrameTime < frameInterval) {
+    return;
+  }
+  lastFrameTime = now;
+
+  if (now - lastWaterTick >= frameInterval) {
+    waterPhase += isLiteMode ? 3.5 : 5;
+    lastWaterTick = now;
+  }
+
+  drawScene();
 }
 
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
 animationLoop();

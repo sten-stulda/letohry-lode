@@ -152,6 +152,20 @@ chmod +x deploy/raspi/update-from-github.sh
 
 Kdyz chces drzet lokalni nastaveni mimo repozitar, priprav si `/etc/letohry-lode.env` podle vzoru [deploy/raspi/letohry-lode.env.example](/home/stulda/projekty/letohry-lode/deploy/raspi/letohry-lode.env.example).
 
+Pro kiosk Chromium lze v tomtez souboru nastavit i GPU rezim:
+
+```bash
+ROWING_KIOSK_GPU_MODE=auto
+```
+
+Podporovane hodnoty:
+
+- `auto`: na Raspberry Pi 4 a 5 zkusi GPU akceleraci zapnout, jinde ji radsi vypne
+- `on`: GPU akceleraci v kiosku vynuti
+- `off`: GPU akceleraci v kiosku vypne kvuli stabilite
+
+Pokud bude na Raspberry Pi obraz plynulejsi s GPU, nastav `ROWING_KIOSK_GPU_MODE=on` a restartuj kiosk sluzbu. Pokud bude Chromium padat nebo zamrzat, vrat se na `off`.
+
 Pri kazdem pushi do `main` a pri kazdem pull requestu se na GitHubu automaticky spusti pytest workflow. To pomuze zachytit rozbite API, websockety nebo exporty driv, nez zmeny dotahnou na Raspberry Pi.
 
 ## Testy bez hardware
