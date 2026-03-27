@@ -20,6 +20,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  overflow: hidden;
   background:
     radial-gradient(circle at top left, rgba(255, 231, 190, 0.8), transparent 35%),
     linear-gradient(180deg, #fcfaf5 0%, #efe6d2 100%);
@@ -67,7 +68,8 @@ body {
 
 .kiosk-shell {
   grid-template-columns: minmax(0, 1fr);
-  padding: 24px;
+  height: 100vh;
+  padding: 16px;
 }
 
 .control-shell {
@@ -81,8 +83,9 @@ body {
 }
 
 .kiosk-shell .race-layout {
-  min-height: calc(100vh - 48px);
-  grid-template-rows: auto auto 1fr;
+  height: calc(100vh - 32px);
+  min-height: 0;
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .admin-layout {
@@ -92,10 +95,30 @@ body {
 }
 
 .kiosk-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  padding: 6px 4px 0;
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(320px, 0.7fr);
+  align-items: stretch;
+  gap: 16px;
+  padding: 4px 2px 0;
+}
+
+.kiosk-header h1 {
+  font-size: clamp(2rem, 3vw, 3.1rem);
+}
+
+.kiosk-sidepanel {
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 16px 36px rgba(39, 52, 67, 0.1);
+}
+
+.performance-lite .kiosk-sidepanel {
+  backdrop-filter: none;
+  box-shadow: 0 10px 24px rgba(39, 52, 67, 0.08);
 }
 
 .panel-copy {
@@ -106,16 +129,25 @@ body {
 
 .scoreboard {
   background: var(--panel-strong);
-  padding: 16px;
+  padding: 12px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
+}
+
+.kiosk-shell .scoreboard {
+  max-height: 208px;
 }
 
 .score-card {
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 20px;
   background: rgba(18, 71, 94, 0.08);
+}
+
+.kiosk-shell .score-card {
+  display: grid;
+  gap: 8px;
 }
 
 .performance-lite .score-card {
@@ -129,20 +161,25 @@ h1 {
 }
 
 .score-card h2 {
-  font-size: 1.35rem;
-  margin-bottom: 10px;
+  font-size: 1.15rem;
+  margin-bottom: 2px;
 }
 
 .metric-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 
 .metric {
   background: rgba(255, 255, 255, 0.74);
   border-radius: 18px;
-  padding: 10px;
+  padding: 8px 10px;
+}
+
+.metric span {
+  display: block;
+  font-size: 0.76rem;
 }
 
 .performance-lite .metric,
@@ -155,7 +192,7 @@ h1 {
 
 .metric strong {
   display: block;
-  font-size: 1.35rem;
+  font-size: 1.05rem;
 }
 
 .eyebrow {
@@ -246,6 +283,7 @@ button.primary {
 
 .track-frame {
   position: relative;
+  min-height: 0;
   overflow: hidden;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.35), transparent),
@@ -265,6 +303,16 @@ button.primary {
   place-items: center;
   text-align: center;
   pointer-events: none;
+}
+
+.overlay-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 18px 28px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(10, 20, 30, 0.08), rgba(10, 20, 30, 0.26));
+  max-width: min(82vw, 720px);
 }
 
 .status-hero {
@@ -291,19 +339,20 @@ button.primary {
 #countdown {
   display: block;
   font-family: "Chakra Petch", sans-serif;
-  font-size: clamp(3rem, 10vw, 8rem);
+  font-size: clamp(2.4rem, 8vw, 6.5rem);
   font-weight: 700;
   color: rgba(255, 255, 255, 0.9);
   text-shadow: 0 12px 24px rgba(8, 17, 25, 0.25);
+  line-height: 0.95;
 }
 
 #eventLabel {
-  margin: 8px 0 0;
+  margin: 0;
   color: white;
-  font-size: clamp(1rem, 2vw, 1.8rem);
+  font-size: clamp(1.1rem, 2.1vw, 2rem);
   font-weight: 700;
-  max-width: min(90vw, 720px);
-  letter-spacing: 0.08em;
+  max-width: min(72vw, 680px);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   text-shadow: 0 10px 24px rgba(8, 17, 25, 0.35);
 }
@@ -336,7 +385,7 @@ button.primary {
 
 .list-card {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .list-row {
@@ -344,9 +393,17 @@ button.primary {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.74);
+}
+
+.kiosk-sidepanel .list-row {
+  padding: 8px 10px;
+}
+
+.kiosk-sidepanel strong {
+  font-size: 0.98rem;
 }
 
 .badge {
@@ -392,6 +449,18 @@ body:has(.theme-night) {
   .app-shell {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto;
+  }
+
+  .kiosk-shell {
+    height: auto;
+  }
+
+  .kiosk-shell .race-layout {
+    height: auto;
+  }
+
+  .kiosk-header {
+    grid-template-columns: 1fr;
   }
 
   .control-shell,
