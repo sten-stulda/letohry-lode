@@ -1,0 +1,296 @@
+:root {
+  --bg: #f4efe2;
+  --panel: rgba(254, 251, 244, 0.84);
+  --panel-strong: rgba(255, 255, 255, 0.94);
+  --text: #132238;
+  --muted: #5c6f81;
+  --accent: #c95f32;
+  --accent-soft: #f2c8a6;
+  --water-a: #86c5da;
+  --water-b: #3f8ca8;
+  --water-c: #12475e;
+  --line: rgba(19, 34, 56, 0.1);
+  --gold: #d6a539;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(255, 231, 190, 0.8), transparent 35%),
+    linear-gradient(180deg, #fcfaf5 0%, #efe6d2 100%);
+  color: var(--text);
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 360px 1fr 320px;
+  gap: 18px;
+  padding: 18px;
+}
+
+.hud-panel,
+.history-panel,
+.track-frame,
+.scoreboard {
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 20px 50px rgba(39, 52, 67, 0.12);
+}
+
+.hud-panel,
+.history-panel {
+  background: var(--panel);
+  padding: 24px;
+}
+
+.race-layout {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 18px;
+}
+
+.scoreboard {
+  background: var(--panel-strong);
+  padding: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.score-card {
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: rgba(18, 71, 94, 0.08);
+}
+
+.score-card h2,
+h1 {
+  font-family: "Chakra Petch", sans-serif;
+  margin: 0;
+}
+
+.score-card h2 {
+  font-size: 1.35rem;
+  margin-bottom: 10px;
+}
+
+.metric-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.metric {
+  background: rgba(255, 255, 255, 0.74);
+  border-radius: 18px;
+  padding: 10px;
+}
+
+.metric strong {
+  display: block;
+  font-size: 1.35rem;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.control-grid {
+  display: grid;
+  gap: 12px;
+  margin: 22px 0;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+input,
+select,
+button {
+  border: 1px solid rgba(19, 34, 56, 0.15);
+  border-radius: 16px;
+  min-height: 48px;
+  padding: 0 14px;
+  font: inherit;
+}
+
+input,
+select {
+  background: rgba(255, 255, 255, 0.88);
+}
+
+button {
+  cursor: pointer;
+  background: white;
+  color: var(--text);
+  font-weight: 700;
+}
+
+button.primary {
+  background: linear-gradient(135deg, var(--accent) 0%, #e48f40 100%);
+  color: white;
+  border-color: transparent;
+}
+
+.button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.toggle-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.toggle-label input {
+  min-height: auto;
+}
+
+.track-frame {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35), transparent),
+    linear-gradient(180deg, var(--water-a) 0%, var(--water-b) 55%, var(--water-c) 100%);
+}
+
+#raceCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.center-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+#countdown {
+  display: block;
+  font-family: "Chakra Petch", sans-serif;
+  font-size: clamp(3rem, 10vw, 8rem);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 12px 24px rgba(8, 17, 25, 0.25);
+}
+
+#eventLabel {
+  margin: 8px 0 0;
+  color: white;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.history-panel {
+  display: grid;
+  gap: 24px;
+  align-content: start;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.panel-heading .eyebrow {
+  margin-bottom: 0;
+}
+
+.secondary-action {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  font-size: 0.86rem;
+}
+
+.list-card {
+  display: grid;
+  gap: 10px;
+}
+
+.list-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(201, 95, 50, 0.12);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.theme-lake {
+  --bg: #ebf6fb;
+  --panel: rgba(239, 251, 255, 0.84);
+  --panel-strong: rgba(255, 255, 255, 0.94);
+  --accent: #157a9c;
+  --water-a: #b0e4ef;
+  --water-b: #62acc1;
+  --water-c: #235e73;
+}
+
+.theme-night {
+  --bg: #06111a;
+  --panel: rgba(16, 24, 38, 0.8);
+  --panel-strong: rgba(15, 27, 43, 0.94);
+  --text: #edf4ff;
+  --muted: #9ab3cf;
+  --accent: #f0ad4e;
+  --water-a: #20344f;
+  --water-b: #142740;
+  --water-c: #08111b;
+  --line: rgba(255, 255, 255, 0.08);
+}
+
+.theme-night body,
+body:has(.theme-night) {
+  background:
+    radial-gradient(circle at top left, rgba(255, 202, 123, 0.12), transparent 35%),
+    linear-gradient(180deg, #07111b 0%, #03070d 100%);
+}
+
+@media (max-width: 1200px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+
+  .track-frame {
+    min-height: 420px;
+  }
+}

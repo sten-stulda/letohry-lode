@@ -1,0 +1,17 @@
+[Unit]
+Description=LetoHry Lode Chromium kiosk
+After=graphical-session.target letohry-lode.service
+Requires=letohry-lode.service
+
+[Service]
+Type=simple
+User=__RUN_USER__
+Group=__RUN_GROUP__
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=__HOME_DIR__/.Xauthority
+ExecStart=__PROJECT_DIR__/deploy/kiosk/start-kiosk.sh http://127.0.0.1:8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
