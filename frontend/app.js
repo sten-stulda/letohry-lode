@@ -7,6 +7,7 @@ const history = document.getElementById("history");
 const diagnostics = document.getElementById("diagnostics");
 const countdown = document.getElementById("countdown");
 const eventLabel = document.getElementById("eventLabel");
+const overlayCard = document.getElementById("overlayCard");
 const exportCsvButton = document.getElementById("exportCsvButton");
 const exportLeaderboardCsvButton = document.getElementById("exportLeaderboardCsvButton");
 const exportDiagnosticsButton = document.getElementById("exportDiagnosticsButton");
@@ -326,11 +327,16 @@ function updateSnapshot(nextSnapshot) {
   syncFormFromSnapshot(snapshot);
   renderScoreboard();
   drawScene();
+  const countdownValue = snapshot.status === "countdown" ? String(snapshot.countdown_s) : snapshot.status === "finished" ? "VÍTĚZ" : "";
+  const eventText = describeEvent(snapshot);
   if (countdown) {
-    countdown.textContent = snapshot.status === "countdown" ? String(snapshot.countdown_s) : snapshot.status === "finished" ? "VÍTĚZ" : "";
+    countdown.textContent = countdownValue;
   }
   if (eventLabel) {
-    eventLabel.textContent = describeEvent(snapshot);
+    eventLabel.textContent = eventText;
+  }
+  if (overlayCard) {
+    overlayCard.classList.toggle("is-hidden", !countdownValue && !eventText);
   }
 }
 

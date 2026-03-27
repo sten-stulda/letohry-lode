@@ -348,6 +348,11 @@ button.primary {
   max-width: min(82vw, 720px);
 }
 
+.overlay-card.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
 .status-hero {
   min-height: 220px;
   display: grid;
