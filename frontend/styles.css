@@ -105,8 +105,48 @@ body:has(.kiosk-shell) {
   padding: 4px 2px 0;
 }
 
-.kiosk-header h1 {
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.brand-lockup-kiosk {
+  align-self: center;
+}
+
+.brand-lockup-control {
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.brand-logo {
+  width: clamp(68px, 6vw, 92px);
+  height: clamp(68px, 6vw, 92px);
+  flex: 0 0 auto;
+  border-radius: 22px;
+  box-shadow: 0 12px 26px rgba(39, 52, 67, 0.14);
+}
+
+.brand-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  line-height: 0.88;
+  letter-spacing: -0.03em;
+}
+
+.brand-title span {
+  display: block;
+}
+
+.kiosk-header .brand-title {
   font-size: clamp(2rem, 3vw, 3.1rem);
+}
+
+.control-shell .brand-title {
+  font-size: clamp(2rem, 2.8vw, 2.8rem);
 }
 
 .kiosk-sidepanel {
@@ -151,6 +191,7 @@ body:has(.kiosk-shell) {
 .kiosk-shell .score-card {
   display: grid;
   gap: 8px;
+  align-content: start;
 }
 
 .performance-lite .score-card {
@@ -166,6 +207,26 @@ h1 {
 .score-card h2 {
   font-size: 1.15rem;
   margin-bottom: 2px;
+}
+
+.score-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.rank-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(18, 71, 94, 0.12);
+  color: var(--text);
+  font-weight: 700;
 }
 
 .metric-row {
@@ -202,16 +263,18 @@ h1 {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   align-items: end;
-  gap: 5px;
-  height: 28px;
-  padding: 2px 0 0;
+  gap: 6px;
+  height: 38px;
+  padding: 4px 6px 2px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.68);
 }
 
 .power-bar {
   display: block;
-  height: calc(8px + (var(--bar-index) * 2px));
+  height: calc(10px + (var(--bar-index) * 3px));
   border-radius: 999px;
-  background: rgba(19, 34, 56, 0.12);
+  background: rgba(19, 34, 56, 0.16);
   transition: background-color 120ms ease, transform 120ms ease;
 }
 
@@ -499,6 +562,10 @@ body:has(.theme-night) {
 
   .kiosk-header {
     grid-template-columns: 1fr;
+  }
+
+  .brand-lockup {
+    align-items: flex-start;
   }
 
   .control-shell,

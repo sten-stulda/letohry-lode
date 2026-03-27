@@ -165,10 +165,13 @@ function renderScoreboard() {
       (lane) => {
         const gapLabel = lane.rank === 1 ? "Náskok" : "Ztráta";
         const gapValue = `${Math.abs(lane.lead_m).toFixed(1)} m`;
+        const rankBadge = lane.rank ? `<span class="rank-pill">#${lane.rank}</span>` : "";
         return `
         <article class="score-card">
-          <div class="eyebrow">Lane ${lane.lane_id} ${lane.rank ? `• #${lane.rank}` : ""}</div>
-          <h2>${lane.name}</h2>
+          <div class="score-card-head">
+            <h2>${lane.name}</h2>
+            ${rankBadge}
+          </div>
           <div class="metric-row">
             <div class="metric"><span>Metry</span><strong>${lane.distance_m.toFixed(0)}</strong></div>
             <div class="metric"><span>Tempo</span><strong>${formatPace(lane.pace_per_500_s)}</strong></div>
@@ -180,7 +183,6 @@ function renderScoreboard() {
             <div class="metric"><span>Výkon</span><strong>${formatWatts(lane.watts)}</strong></div>
           </div>
           <div class="power-meter" aria-hidden="true">${renderPowerMeter(lane.watts)}</div>
-          <div class="eyebrow">${lane.interval_phase ? `Faze: ${lane.interval_phase}` : lane.status}</div>
         </article>
       `;
       },
