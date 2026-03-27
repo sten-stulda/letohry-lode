@@ -2,6 +2,12 @@
 
 Open-source aplikace pro Raspberry Pi, ktera pripoji dva veslarske trenazery Concept2 s monitorem PM3 pres USB a zobrazi realtime zavod dvou virtualnich lodi na jedne obrazovce.
 
+Repozitář: https://github.com/sten-stulda/letohry-lode
+
+Licence: MIT, viz [LICENSE](/home/stulda/projekty/letohry-lode/LICENSE)
+
+Automatické testy při pushi a pull requestech běží přes GitHub Actions v [tests.yml](/home/stulda/projekty/letohry-lode/.github/workflows/tests.yml).
+
 ## Co projekt umi
 
 - realtime zavod dvou hracu na 500 m, 1000 m a 2000 m
@@ -70,6 +76,8 @@ Pro nové Raspberry Pi je doporučený postup popsaný i v [deploy/raspi/INSTALL
 
 Pokud bude projekt uložený na GitHubu, bootstrap umí repozitář rovnou naklonovat a další změny pak může Raspberry Pi tahat skriptem [deploy/raspi/update-from-github.sh](/home/stulda/projekty/letohry-lode/deploy/raspi/update-from-github.sh).
 
+Ve výchozím stavu bootstrap používá repozitář `https://github.com/sten-stulda/letohry-lode.git`, takže na čistém Raspberry Pi často stačí jen spustit samotný bootstrap bez dalšího doplňování URL.
+
 1. Nainstaluj systemove balicky:
 
 ```bash
@@ -136,6 +144,8 @@ chmod +x deploy/raspi/update-from-github.sh
 ```
 
 Kdyz chces drzet lokalni nastaveni mimo repozitar, priprav si `/etc/letohry-lode.env` podle vzoru [deploy/raspi/letohry-lode.env.example](/home/stulda/projekty/letohry-lode/deploy/raspi/letohry-lode.env.example).
+
+Pri kazdem pushi do `main` a pri kazdem pull requestu se na GitHubu automaticky spusti pytest workflow. To pomuze zachytit rozbite API, websockety nebo exporty driv, nez zmeny dotahnou na Raspberry Pi.
 
 ## Testy bez hardware
 

@@ -63,7 +63,7 @@ chmod +x deploy/raspi/bootstrap-fresh-pi.sh
 Pokud repozitář na Raspberry Pi ještě není:
 
 ```bash
-git clone <URL_REPOZITARE> /home/pi/letohry-lode
+git clone https://github.com/sten-stulda/letohry-lode.git /home/pi/letohry-lode
 cd /home/pi/letohry-lode
 chmod +x deploy/raspi/bootstrap-fresh-pi.sh
 ./deploy/raspi/bootstrap-fresh-pi.sh /home/pi/letohry-lode
@@ -72,16 +72,18 @@ chmod +x deploy/raspi/bootstrap-fresh-pi.sh
 Nebo jedním krokem, pokud chceš bootstrapu rovnou předat URL repozitáře:
 
 ```bash
-bash deploy/raspi/bootstrap-fresh-pi.sh /home/pi/letohry-lode <URL_REPOZITARE> main
+bash deploy/raspi/bootstrap-fresh-pi.sh /home/pi/letohry-lode https://github.com/sten-stulda/letohry-lode.git main
 ```
 
 Bootstrap umí použít i proměnné prostředí, takže můžeš mít URL a branch připravené předem:
 
 ```bash
-export LETOHRY_REPO_URL=https://github.com/<owner>/<repo>.git
+export LETOHRY_REPO_URL=https://github.com/sten-stulda/letohry-lode.git
 export LETOHRY_REPO_BRANCH=main
 ./deploy/raspi/bootstrap-fresh-pi.sh /home/pi/letohry-lode
 ```
+
+Pokud `LETOHRY_REPO_URL` nenastavíš, bootstrap použije jako výchozí adresu právě `https://github.com/sten-stulda/letohry-lode.git`.
 
 ## Co bootstrap skript udělá
 

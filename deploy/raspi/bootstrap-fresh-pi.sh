@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_DIR="${1:-/home/pi/letohry-lode}"
-REPO_URL="${2:-${LETOHRY_REPO_URL:-}}"
+REPO_URL="${2:-${LETOHRY_REPO_URL:-https://github.com/sten-stulda/letohry-lode.git}}"
 BRANCH="${3:-${LETOHRY_REPO_BRANCH:-main}}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 RUN_USER="${RUN_USER:-$(id -un)}"
@@ -29,11 +29,6 @@ sudo apt install -y \
   x11-xserver-utils
 
 if [[ ! -d "$PROJECT_DIR/.git" ]]; then
-  if [[ -z "$REPO_URL" ]]; then
-    echo "Repository is not present in $PROJECT_DIR and no REPO_URL was provided." >&2
-    echo "Usage: $0 /home/pi/letohry-lode https://github.com/<owner>/<repo>.git [branch]" >&2
-    exit 1
-  fi
   echo "[2/8] Cloning repository into $PROJECT_DIR"
   rm -rf "$PROJECT_DIR"
   git clone --branch "$BRANCH" --depth 1 "$REPO_URL" "$PROJECT_DIR"
