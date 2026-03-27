@@ -90,6 +90,31 @@ def test_control_panel_page_is_served(tmp_path: Path) -> None:
         assert response.status_code == 200
         assert "Ovládací panel" in response.text
         assert 'id="startButton"' in response.text
+        assert 'id="serialPort1"' in response.text
+        assert 'id="clearHistoryButton"' in response.text
+
+
+def test_history_can_be_cleared(tmp_path: Path) -> None:
+    with create_test_client(tmp_path) as client:
+        client.post(
+            "/api/start",
+            json={
+                "player_names": ["Alice", "Bob"],
+                "distance_m": 500,
+                "mode": "realtime",
+                "theme": "lake",
+                "ghost_source": "none",
+                "use_mock_devices": True,
+            },
+        )
+        wait_for_race_finish(client)
+
+        response = client.post("/api/history/clear")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["recent_results"] == []
+        assert payload["top_results"] == []
 
 
 def test_websocket_stream_delivers_race_updates(tmp_path: Path) -> None:

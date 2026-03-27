@@ -10,6 +10,7 @@ const eventLabel = document.getElementById("eventLabel");
 const exportCsvButton = document.getElementById("exportCsvButton");
 const exportLeaderboardCsvButton = document.getElementById("exportLeaderboardCsvButton");
 const exportDiagnosticsButton = document.getElementById("exportDiagnosticsButton");
+const clearHistoryButton = document.getElementById("clearHistoryButton");
 const searchParams = new URLSearchParams(location.search);
 
 function resolvePerformanceMode() {
@@ -25,6 +26,7 @@ function resolvePerformanceMode() {
 
 const performanceMode = resolvePerformanceMode();
 const isLiteMode = performanceMode === "lite";
+const isKioskPage = appShell?.classList.contains("kiosk-shell") ?? false;
 const renderSettings = {
   waterBands: isLiteMode ? 7 : 18,
   waterStepX: isLiteMode ? 72 : 40,
@@ -42,6 +44,8 @@ const form = {
   ghostSource: document.getElementById("ghostSource"),
   theme: document.getElementById("theme"),
   intervalPreset: document.getElementById("intervalPreset"),
+  serialPort1: document.getElementById("serialPort1"),
+  serialPort2: document.getElementById("serialPort2"),
   useMock: document.getElementById("useMock"),
   startButton: document.getElementById("startButton"),
   resetButton: document.getElementById("resetButton"),
@@ -65,6 +69,39 @@ let lastSoundCue = "";
 let lastFrameTime = 0;
 let lastWaterTick = 0;
 let waterPhase = 0;
+
+function populateSerialPortOptions(statusPayload) {
+  if (!form.serialPort1 || !form.serialPort2) {
+    return;
+  }
+
+  const discoveredPorts = statusPayload.discovered_serial_ports || [];
+  const configuredPorts = statusPayload.configured_serial_ports || [];
+  const selectedPorts = discoveredPorts.length ? discoveredPorts : configuredPorts;
+  const options = ['<option value="">Automaticky</option>']
+    .concat(selectedPorts.map((port) => `<option value="${port}">${port}</option>`))
+    .join("");
+
+  form.serialPort1.innerHTML = options;
+  form.serialPort2.innerHTML = options;
+
+  if (configuredPorts[0]) {
+    form.serialPort1.value = configuredPorts[0];
+  }
+  if (configuredPorts[1]) {
+    form.serialPort2.value = configuredPorts[1];
+  }
+}
+
+function syncUsbControls() {
+  if (!form.serialPort1 || !form.serialPort2 || !form.useMock) {
+    return;
+  }
+
+  const disabled = form.useMock.checked;
+  form.serialPort1.disabled = disabled;
+  form.serialPort2.disabled = disabled;
+}
 
 appShell.classList.add(`performance-${performanceMode}`);
 
@@ -270,6 +307,9 @@ function describeEvent(currentSnapshot) {
   const winnerName = getWinnerName(currentSnapshot);
   if (currentSnapshot.status === "finished" && winnerName) {
     return `Vyhrál ${winnerName}`;
+  }
+  if (currentSnapshot.status === "racing" || currentSnapshot.event === "telemetry") {
+    return "";
   }
   if (currentSnapshot.event === "race_started") {
     return "Závod odstartován";
@@ -480,10 +520,11 @@ async function loadHistory() {
 
   const response = await fetch("/api/history");
   const payload = await response.json();
+  const leaderboardEntries = isKioskPage ? payload.top_results.slice(0, 3) : payload.top_results;
 
   renderList(
     leaderboard,
-    payload.top_results,
+    leaderboardEntries,
     (entry, index) => `
       <div class="list-row">
         <span>${index + 1}. ${entry.player_name}</span>
@@ -534,6 +575,17 @@ async function fetchSnapshot() {
   updateSnapshot(payload);
 }
 
+async function fetchStatus() {
+  const response = await fetch("/api/status");
+  const payload = await response.json();
+  populateSerialPortOptions(payload);
+  if (form.useMock) {
+    form.useMock.checked = payload.using_mock_devices;
+  }
+  syncUsbControls();
+  return payload;
+}
+
 async function startRace() {
   if (!form.player1 || !form.player2 || !form.distance || !form.mode || !form.theme || !form.ghostSource || !form.useMock || !form.intervalPreset) {
     return;
@@ -549,6 +601,10 @@ async function startRace() {
     use_mock_devices: form.useMock.checked,
     interval: form.mode.value === "interval" ? { sprint_s: sprint, rest_s: rest, repeats: 8 } : null,
   };
+
+  if (!form.useMock.checked && form.serialPort1 && form.serialPort2 && form.serialPort1.value && form.serialPort2.value) {
+    payload.serial_ports = [form.serialPort1.value, form.serialPort2.value];
+  }
 
   const response = await fetch("/api/start", {
     method: "POST",
@@ -570,6 +626,20 @@ async function resetRace() {
   const response = await fetch("/api/reset", { method: "POST" });
   const nextSnapshot = await response.json();
   updateSnapshot(nextSnapshot);
+  await loadHistory();
+}
+
+async function clearHistory() {
+  const confirmed = window.confirm("Opravdu vymazat celou historii závodů?");
+  if (!confirmed) {
+    return;
+  }
+
+  const response = await fetch("/api/history/clear", { method: "POST" });
+  if (!response.ok) {
+    return;
+  }
+
   await loadHistory();
 }
 
@@ -620,6 +690,9 @@ function connectSocket() {
 if (form.theme) {
   form.theme.addEventListener("change", () => setTheme(form.theme.value));
 }
+if (form.useMock) {
+  form.useMock.addEventListener("change", syncUsbControls);
+}
 if (form.startButton) {
   form.startButton.addEventListener("click", startRace);
 }
@@ -635,8 +708,12 @@ if (exportLeaderboardCsvButton) {
 if (exportDiagnosticsButton) {
   exportDiagnosticsButton.addEventListener("click", downloadDiagnosticsLog);
 }
+if (clearHistoryButton) {
+  clearHistoryButton.addEventListener("click", clearHistory);
+}
 
 await fetchSnapshot();
+await fetchStatus();
 await loadHistory();
 setTheme(snapshot.theme);
 connectSocket();

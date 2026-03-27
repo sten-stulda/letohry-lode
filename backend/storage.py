@@ -146,6 +146,10 @@ class HistoryStore:
             recent_results=self.get_recent_results(),
         )
 
+    def clear_history(self) -> None:
+        with self._connection() as connection:
+            connection.execute("DELETE FROM race_results")
+
     def export_results_csv(self, distance_m: int | None = None, player_name: str | None = None) -> str:
         query = """
             SELECT id, player_name, lane_id, race_id, mode, distance_m,

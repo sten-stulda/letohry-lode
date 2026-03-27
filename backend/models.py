@@ -26,6 +26,7 @@ class StartRaceRequest(BaseModel):
     ghost_source: GhostSource = "none"
     interval: IntervalConfig | None = None
     use_mock_devices: bool = True
+    serial_ports: list[str] | None = Field(default=None, min_length=2, max_length=2)
 
 
 class TelemetryFrame(BaseModel):
@@ -92,6 +93,8 @@ class AppStatus(BaseModel):
     version: str
     race: RaceSnapshot
     serial_ports: list[str]
+    discovered_serial_ports: list[str] = Field(default_factory=list)
+    configured_serial_ports: list[str] = Field(default_factory=list)
     using_mock_devices: bool
 
 

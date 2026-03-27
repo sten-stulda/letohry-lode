@@ -100,7 +100,12 @@ class RaceManager:
                 for index, name in enumerate(request.player_names)
             ]
 
-        resolved_ports = resolve_pm3_ports(self.config, expected_count=len(request.player_names))
+        if request.serial_ports:
+            if len(set(request.serial_ports)) != len(request.serial_ports):
+                raise RuntimeError("Každá loď musí mít vybraný jiný USB port.")
+            resolved_ports = request.serial_ports
+        else:
+            resolved_ports = resolve_pm3_ports(self.config, expected_count=len(request.player_names))
 
         return [
             PM3SerialMonitor(

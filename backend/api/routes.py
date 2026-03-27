@@ -24,11 +24,14 @@ async def get_status(request: Request) -> AppStatus:
     race_manager = request.app.state.race_manager
     config = request.app.state.config
     snapshot = await race_manager.get_snapshot()
+    discovered_ports = discover_pm3_ports(config)
     return AppStatus(
         app_name=config.app_name,
         version=config.version,
         race=snapshot,
-        serial_ports=discover_pm3_ports(config) or list(config.default_serial_ports),
+        serial_ports=discovered_ports or list(config.default_serial_ports),
+        discovered_serial_ports=discovered_ports,
+        configured_serial_ports=list(config.default_serial_ports),
         using_mock_devices=race_manager.using_mock_devices,
     )
 
@@ -51,6 +54,13 @@ async def start_race(payload: StartRaceRequest, request: Request) -> RaceSnapsho
 @router.post("/api/reset", response_model=RaceSnapshot)
 async def reset_race(request: Request) -> RaceSnapshot:
     return await request.app.state.race_manager.reset_race()
+
+
+@router.post("/api/history/clear")
+async def clear_history(request: Request) -> HistoryResponse:
+    await request.app.state.race_manager.reset_race()
+    request.app.state.history_store.clear_history()
+    return request.app.state.history_store.history()
 
 
 @router.get("/api/history", response_model=HistoryResponse)

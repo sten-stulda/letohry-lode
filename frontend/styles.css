@@ -284,6 +284,10 @@ button.primary {
   margin-top: 12px;
 }
 
+.single-row {
+  grid-template-columns: 1fr;
+}
+
 .link-button {
   display: inline-flex;
   align-items: center;

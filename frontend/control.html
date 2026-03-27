@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>LetoHry Lode | Ovládání</title>
+    <title>Letohry Tisá - lodě | Ovládání</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
@@ -14,7 +14,7 @@
       <section class="hud-panel">
         <div>
           <p class="eyebrow">Ovládací panel</p>
-          <h1>LetoHry Lode</h1>
+          <h1>Letohry Tisá - lodě</h1>
           <p class="panel-copy">Nastavení závodu, start a reset jsou oddělené od prezentačního kiosku.</p>
         </div>
         <div class="control-grid">
@@ -65,6 +65,18 @@
               <option value="60,60">60 s / 60 s</option>
             </select>
           </label>
+          <label>
+            První loď USB
+            <select id="serialPort1">
+              <option value="">Automaticky</option>
+            </select>
+          </label>
+          <label>
+            Druhá loď USB
+            <select id="serialPort2">
+              <option value="">Automaticky</option>
+            </select>
+          </label>
           <label class="toggle-label">
             <span>Mock PM3</span>
             <input id="useMock" type="checkbox" checked />
@@ -77,6 +89,9 @@
         <div class="button-row utility-row">
           <a class="link-button" href="/" target="_blank" rel="noreferrer">Otevřít kiosk</a>
           <a class="link-button" href="/control">Obnovit panel</a>
+        </div>
+        <div class="button-row utility-row single-row">
+          <button id="clearHistoryButton" type="button">Vymazat historii</button>
         </div>
       </section>
 
