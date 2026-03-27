@@ -36,6 +36,9 @@ let snapshot = {
 };
 
 let socket;
+let audioContext;
+let splashBuffer;
+let lastSoundCue = "";
 
 function formatTime(seconds) {
   if (!Number.isFinite(seconds)) {
@@ -179,40 +182,175 @@ function drawBoat(lane, index, ghost) {
   context.restore();
 }
 
+function getWinnerName(currentSnapshot) {
+  return currentSnapshot.lanes.find((lane) => lane.lane_id === currentSnapshot.winner_lane)?.name ?? null;
+}
+
+function describeEvent(currentSnapshot) {
+  const winnerName = getWinnerName(currentSnapshot);
+  if (currentSnapshot.status === "finished" && winnerName) {
+    return `Vyhral ${winnerName}`;
+  }
+  if (currentSnapshot.event === "race_started") {
+    return "Zavod odstartovan";
+  }
+  if (currentSnapshot.event === "countdown") {
+    return "Pripravit";
+  }
+  return currentSnapshot.event.replaceAll("_", " ");
+}
+
 function updateSnapshot(nextSnapshot) {
   snapshot = nextSnapshot;
   setTheme(snapshot.theme);
   renderScoreboard();
   drawScene();
-  countdown.textContent = snapshot.status === "countdown" ? String(snapshot.countdown_s) : snapshot.status === "finished" ? "FINISH" : "";
-  eventLabel.textContent = snapshot.event.replaceAll("_", " ");
+  countdown.textContent = snapshot.status === "countdown" ? String(snapshot.countdown_s) : snapshot.status === "finished" ? "VITEZ" : "";
+  eventLabel.textContent = describeEvent(snapshot);
 }
 
-function tone(frequency, durationMs) {
-  const audio = new AudioContext();
+function getAudioContext() {
+  if (!audioContext) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) {
+      return null;
+    }
+    audioContext = new AudioContextClass();
+  }
+  if (audioContext.state === "suspended") {
+    audioContext.resume().catch(() => {});
+  }
+  return audioContext;
+}
+
+function tone(frequency, durationMs, options = {}) {
+  const audio = getAudioContext();
+  if (!audio) {
+    return;
+  }
+
   const oscillator = audio.createOscillator();
   const gain = audio.createGain();
+  const now = audio.currentTime;
+
   oscillator.connect(gain);
   gain.connect(audio.destination);
   oscillator.type = "triangle";
   oscillator.frequency.value = frequency;
-  gain.gain.value = 0.05;
-  oscillator.start();
-  setTimeout(() => {
-    oscillator.stop();
-    audio.close();
-  }, durationMs);
+  gain.gain.setValueAtTime(options.volume ?? 0.05, now);
+  if (options.fadeOut !== false) {
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + durationMs / 1000);
+  }
+  oscillator.start(now);
+  oscillator.stop(now + durationMs / 1000);
+}
+
+function getSplashBuffer() {
+  const audio = getAudioContext();
+  if (!audio) {
+    return null;
+  }
+  if (splashBuffer) {
+    return splashBuffer;
+  }
+
+  const length = Math.floor(audio.sampleRate * 0.9);
+  splashBuffer = audio.createBuffer(1, length, audio.sampleRate);
+  const data = splashBuffer.getChannelData(0);
+
+  for (let index = 0; index < length; index += 1) {
+    const progress = index / length;
+    const envelope = (1 - progress) ** 2;
+    data[index] = (Math.random() * 2 - 1) * envelope;
+  }
+
+  return splashBuffer;
+}
+
+function playSplash() {
+  const audio = getAudioContext();
+  const buffer = getSplashBuffer();
+  if (!audio || !buffer) {
+    return;
+  }
+
+  const source = audio.createBufferSource();
+  const filter = audio.createBiquadFilter();
+  const gain = audio.createGain();
+  const now = audio.currentTime;
+
+  source.buffer = buffer;
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(900, now);
+  filter.Q.value = 0.8;
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.13, now + 0.05);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(audio.destination);
+  source.start(now);
+  source.stop(now + 0.85);
+}
+
+function playCrowdCheer() {
+  const audio = getAudioContext();
+  const buffer = getSplashBuffer();
+  if (!audio || !buffer) {
+    return;
+  }
+
+  const source = audio.createBufferSource();
+  const filter = audio.createBiquadFilter();
+  const gain = audio.createGain();
+  const now = audio.currentTime;
+
+  source.buffer = buffer;
+  source.loop = true;
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(1400, now);
+  filter.Q.value = 1.2;
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.04, now + 0.12);
+  gain.gain.exponentialRampToValueAtTime(0.012, now + 1.4);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.4);
+
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(audio.destination);
+  source.start(now);
+  source.stop(now + 2.45);
+
+  [780, 920, 1040, 1180].forEach((frequency, index) => {
+    tone(frequency, 180 + index * 30, { volume: 0.018 + index * 0.005 });
+  });
+}
+
+function playVictoryCue() {
+  playCrowdCheer();
+  tone(523.25, 240, { volume: 0.035 });
+  setTimeout(() => tone(659.25, 260, { volume: 0.035 }), 170);
+  setTimeout(() => tone(783.99, 560, { volume: 0.04 }), 340);
 }
 
 function handleEventSounds(nextSnapshot) {
+  const cueKey = nextSnapshot.event === "countdown" ? `countdown:${nextSnapshot.countdown_s}` : nextSnapshot.event;
+  if (cueKey === lastSoundCue) {
+    return;
+  }
+  lastSoundCue = cueKey;
+
   if (nextSnapshot.event === "countdown") {
     tone(880, 120);
   }
   if (nextSnapshot.event === "race_started") {
-    tone(1240, 240);
+    playSplash();
+    setTimeout(() => tone(1240, 240, { volume: 0.045 }), 120);
+    setTimeout(playCrowdCheer, 180);
   }
   if (nextSnapshot.event === "race_finished") {
-    tone(660, 600);
+    playVictoryCue();
   }
 }
 
