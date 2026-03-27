@@ -240,27 +240,27 @@ async function loadHistory() {
           <strong>${entry.player_name}</strong>
           <div>${entry.distance_m} m • ${entry.mode}</div>
         </div>
-
-    const diagnosticsResponse = await fetch("/api/diagnostics/status");
-    const diagnosticsPayload = await diagnosticsResponse.json();
-    renderList(
-      diagnostics,
-      [diagnosticsPayload],
-      (entry) => `
-        <div class="list-row">
-          <div>
-            <strong>${entry.enabled ? "PM3 logovani aktivni" : "PM3 logovani vypnuto"}</strong>
-            <div>${entry.total_events} udalosti</div>
-          </div>
-          <div>
-            <strong>${entry.log_path.split("/").at(-1) || "pm3-diagnostics.log"}</strong>
-          </div>
-        </div>
-      `,
-    );
         <div>
           <strong>${formatTime(entry.finish_time_s)}</strong>
           <div class="badge">${entry.bonus_points} b</div>
+        </div>
+      </div>
+    `,
+  );
+
+  const diagnosticsResponse = await fetch("/api/diagnostics/status");
+  const diagnosticsPayload = await diagnosticsResponse.json();
+  renderList(
+    diagnostics,
+    [diagnosticsPayload],
+    (entry) => `
+      <div class="list-row">
+        <div>
+          <strong>${entry.enabled ? "PM3 logovani aktivni" : "PM3 logovani vypnuto"}</strong>
+          <div>${entry.total_events} udalosti</div>
+        </div>
+        <div>
+          <strong>${entry.log_path.split("/").at(-1) || "pm3-diagnostics.log"}</strong>
         </div>
       </div>
     `,
