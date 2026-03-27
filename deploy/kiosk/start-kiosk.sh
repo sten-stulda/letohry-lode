@@ -18,6 +18,10 @@ fi
 "$CHROMIUM_BIN" \
   --kiosk \
   --incognito \
+  --disable-gpu \
+  --disable-gpu-compositing \
+  --disable-features=UseSkiaRenderer,Vulkan \
+  --disable-dev-shm-usage \
   --disable-restore-session-state \
   --disable-infobars \
   --check-for-update-interval=31536000 \
