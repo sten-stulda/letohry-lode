@@ -7,6 +7,7 @@ from uuid import uuid4
 from ..config import AppConfig
 from ..models import PM3Frame, RaceResult, RaceSnapshot, StartRaceRequest, TelemetryFrame
 from ..pm3.device import MockRowingMonitor, PM3SerialMonitor, RowingMonitor, resolve_pm3_ports
+from ..pm3.hid_device import PM3HIDMonitor
 from ..services.diagnostics import DiagnosticsService
 from ..storage import HistoryStore
 
@@ -113,16 +114,27 @@ class RaceManager:
         else:
             resolved_ports = resolve_pm3_ports(self.config, expected_count=expected_pm3_count)
 
-        monitors = [
-            PM3SerialMonitor(
-                lane_id=index + 1,
-                name=name,
-                port=resolved_ports[index],
-                connect_retries=self.config.serial_connect_retries,
-                diagnostics_service=self.diagnostics_service,
-            )
-            for index, name in enumerate(request.player_names)
-        ]
+        monitors = []
+        for index, name in enumerate(request.player_names):
+            port = resolved_ports[index]
+            # Detect if this is an HID device or a serial port
+            if port.startswith("/dev/hidraw"):
+                monitor: RowingMonitor = PM3HIDMonitor(
+                    lane_id=index + 1,
+                    name=name,
+                    device_path=port,
+                    connect_retries=self.config.serial_connect_retries,
+                    diagnostics_service=self.diagnostics_service,
+                )
+            else:
+                monitor = PM3SerialMonitor(
+                    lane_id=index + 1,
+                    name=name,
+                    port=port,
+                    connect_retries=self.config.serial_connect_retries,
+                    diagnostics_service=self.diagnostics_service,
+                )
+            monitors.append(monitor)
         return monitors
 
     async def _run_countdown(self, request: StartRaceRequest) -> None:

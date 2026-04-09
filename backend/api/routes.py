@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from ..models import AppStatus, DiagnosticsStatus, HistoryResponse, RaceSnapshot, StartRaceRequest
 from ..pm3.device import discover_pm3_ports
+from ..pm3.hid_device import discover_pm3_hid_devices
 
 
 router = APIRouter()
@@ -25,12 +26,14 @@ async def get_status(request: Request) -> AppStatus:
     config = request.app.state.config
     snapshot = await race_manager.get_snapshot()
     discovered_ports = discover_pm3_ports(config)
+    hid_devices = discover_pm3_hid_devices()
+    all_discovered = discovered_ports + [d for d in hid_devices if d not in discovered_ports]
     return AppStatus(
         app_name=config.app_name,
         version=config.version,
         race=snapshot,
-        serial_ports=discovered_ports or list(config.default_serial_ports),
-        discovered_serial_ports=discovered_ports,
+        serial_ports=all_discovered or list(config.default_serial_ports),
+        discovered_serial_ports=all_discovered,
         configured_serial_ports=list(config.default_serial_ports),
         using_mock_devices=race_manager.using_mock_devices,
     )

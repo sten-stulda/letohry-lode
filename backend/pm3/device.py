@@ -13,6 +13,7 @@ from ..config import AppConfig
 from ..models import PM3Frame
 from ..services.diagnostics import DiagnosticsService
 from .csafe import CSAFECommand, build_frame, parse_frame
+from .hid_device import PM3HIDMonitor, discover_pm3_hid_devices
 
 
 GET_WORKOUT_DATA = 0xA0
@@ -219,11 +220,34 @@ def discover_pm3_ports(config: AppConfig) -> list[str]:
 
 
 def resolve_pm3_ports(config: AppConfig, expected_count: int = 2) -> list[str]:
+    """Resolve PM3 device paths, trying serial ports first, then HID devices."""
+    # Try serial ports first
     discovered = discover_pm3_ports(config)
+
+    # If not enough serial ports, also try HID devices
     if len(discovered) < expected_count:
+        hid_devices = discover_pm3_hid_devices()
+        for hid_dev in hid_devices:
+            if hid_dev not in discovered:
+                discovered.append(hid_dev)
+            if len(discovered) >= expected_count:
+                break
+
+    if len(discovered) < expected_count:
+        # Check if we have any HID devices at all for a better error message
+        hid_devices = discover_pm3_hid_devices()
+        if hid_devices:
+            hint = (
+                f"Found {len(hid_devices)} PM3 as HID device(s) ({', '.join(hid_devices)}), "
+                f"but need {expected_count}. "
+                "Check USB connections or use Mock PM3."
+            )
+        else:
+            hint = (
+                "Set ROWING_PORT_1 and ROWING_PORT_2 explicitly or connect both monitors over USB."
+            )
         raise RuntimeError(
-            "Not enough PM3 devices detected. "
-            f"Expected {expected_count}, found {len(discovered)}. "
-            "Set ROWING_PORT_1 and ROWING_PORT_2 explicitly or connect both monitors over USB."
+            f"Not enough PM3 devices detected. "
+            f"Expected {expected_count}, found {len(discovered)}. {hint}"
         )
     return discovered[:expected_count]
