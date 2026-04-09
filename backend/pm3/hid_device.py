@@ -145,19 +145,31 @@ def discover_pm3_hid_devices() -> list[str]:
     discovered: list[str] = []
 
     for hidraw_path in sorted(Path("/dev").glob("hidraw*")):
-        try:
-            dev_path = str(hidraw_path)
-            info_path = Path(f"/sys/class/hidraw/{hidraw_path.name}/device/uevent")
-            if info_path.exists():
-                content = info_path.read_text(encoding="utf-8", errors="ignore")
-                if "HID_NAME=Concept2" in content or "0425" in content:
-                    discovered.append(dev_path)
-        except (OSError, PermissionError):
-            continue
+        dev_path = str(hidraw_path)
+        is_pm3 = False
 
-    # Fallback: check all hidraw devices if uevent doesn't identify PM3
-    if not discovered:
-        for hidraw_path in sorted(Path("/dev").glob("hidraw*")):
-            discovered.append(str(hidraw_path))
+        # Check uevent for HID name
+        info_path = Path(f"/sys/class/hidraw/{hidraw_path.name}/device/uevent")
+        if info_path.exists():
+            try:
+                content = info_path.read_text(encoding="utf-8", errors="ignore")
+                if "Concept2" in content or "0425:0000" in content:
+                    is_pm3 = True
+            except (OSError, PermissionError):
+                pass
+
+        # Also check device name via sysfs
+        if not is_pm3:
+            name_path = Path(f"/sys/class/hidraw/{hidraw_path.name}/device/name")
+            if name_path.exists():
+                try:
+                    name = name_path.read_text(encoding="utf-8", errors="ignore").strip()
+                    if "Concept2" in name or "PM3" in name:
+                        is_pm3 = True
+                except (OSError, PermissionError):
+                    pass
+
+        if is_pm3:
+            discovered.append(dev_path)
 
     return discovered
