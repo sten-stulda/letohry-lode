@@ -648,8 +648,12 @@ async function startRace() {
     interval: form.mode.value === "interval" ? { sprint_s: sprint, rest_s: rest, repeats: 8 } : null,
   };
 
-  if (!form.useMock.checked && form.serialPort1 && form.serialPort2 && form.serialPort1.value && form.serialPort2.value) {
-    payload.serial_ports = isGhostMode ? [form.serialPort1.value] : [form.serialPort1.value, form.serialPort2.value];
+  if (!form.useMock.checked) {
+    if (isGhostMode && form.serialPort1 && form.serialPort1.value) {
+      payload.serial_ports = [form.serialPort1.value];
+    } else if (form.serialPort1 && form.serialPort2 && form.serialPort1.value && form.serialPort2.value) {
+      payload.serial_ports = [form.serialPort1.value, form.serialPort2.value];
+    }
   }
 
   const response = await fetch("/api/start", {
