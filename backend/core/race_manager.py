@@ -90,8 +90,13 @@ class RaceManager:
         await self.reset_race()
 
     def _build_monitors(self, request: StartRaceRequest) -> list[RowingMonitor]:
+        # V ghost módu s jedním hráčem potřebujeme jen 1 reálný PM3
+        # Druhý "hráč" je virtuální ghost loď
+        real_player_count = len(request.player_names)
+        expected_pm3_count = real_player_count if request.mode != "ghost" else max(real_player_count, 1)
+
         if request.use_mock_devices:
-            return [
+            monitors = [
                 MockRowingMonitor(
                     lane_id=index + 1,
                     name=name,
@@ -99,15 +104,16 @@ class RaceManager:
                 )
                 for index, name in enumerate(request.player_names)
             ]
+            return monitors
 
         if request.serial_ports:
             if len(set(request.serial_ports)) != len(request.serial_ports):
                 raise RuntimeError("Každá loď musí mít vybraný jiný USB port.")
             resolved_ports = request.serial_ports
         else:
-            resolved_ports = resolve_pm3_ports(self.config, expected_count=len(request.player_names))
+            resolved_ports = resolve_pm3_ports(self.config, expected_count=expected_pm3_count)
 
-        return [
+        monitors = [
             PM3SerialMonitor(
                 lane_id=index + 1,
                 name=name,
@@ -117,6 +123,7 @@ class RaceManager:
             )
             for index, name in enumerate(request.player_names)
         ]
+        return monitors
 
     async def _run_countdown(self, request: StartRaceRequest) -> None:
         for second in range(self.config.countdown_seconds, 0, -1):

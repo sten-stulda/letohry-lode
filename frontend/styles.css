@@ -633,3 +633,12 @@ body:has(.theme-night) {
     min-height: 420px;
   }
 }
+
+/* Ghost mode visibility toggles */
+.ghost-mode-only {
+  display: none;
+}
+
+body.ghost-mode-active .ghost-mode-only {
+  display: block;
+}

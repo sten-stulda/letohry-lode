@@ -43,8 +43,14 @@ async def get_race(request: Request) -> RaceSnapshot:
 
 @router.post("/api/start", response_model=RaceSnapshot)
 async def start_race(payload: StartRaceRequest, request: Request) -> RaceSnapshot:
-    if len(payload.player_names) != 2:
-        raise HTTPException(status_code=400, detail="Exactly two player names are required.")
+    if not payload.player_names:
+        raise HTTPException(status_code=400, detail="At least one player name is required.")
+    if len(payload.player_names) > 2:
+        raise HTTPException(status_code=400, detail="Maximum two players are supported.")
+    if payload.mode == "realtime" and len(payload.player_names) != 2:
+        raise HTTPException(status_code=400, detail="Realtime mode requires exactly two players.")
+    if payload.mode == "interval" and len(payload.player_names) != 2:
+        raise HTTPException(status_code=400, detail="Interval mode requires exactly two players.")
     try:
         return await request.app.state.race_manager.start_race(payload)
     except RuntimeError as error:

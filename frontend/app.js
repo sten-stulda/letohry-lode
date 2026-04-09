@@ -349,21 +349,30 @@ function updateSnapshot(nextSnapshot) {
 }
 
 function syncFormFromSnapshot(currentSnapshot) {
-  if (!form.player1 || !form.player2 || !form.distance || !form.mode || !form.theme || !form.ghostSource) {
+  if (!form.player1 || !form.distance || !form.mode || !form.theme) {
     return;
   }
 
-  if (currentSnapshot.lanes.length >= 2) {
+  if (currentSnapshot.lanes.length >= 1) {
     form.player1.value = currentSnapshot.lanes[0].name || form.player1.value;
+  }
+  if (currentSnapshot.lanes.length >= 2) {
     form.player2.value = currentSnapshot.lanes[1].name || form.player2.value;
   }
 
   form.distance.value = String(currentSnapshot.distance_m || 1000);
   form.mode.value = currentSnapshot.mode || "realtime";
   form.theme.value = currentSnapshot.theme || "river";
-  if (form.ghostSource.value === "") {
+  if (form.ghostSource && form.ghostSource.value === "") {
     form.ghostSource.value = "none";
   }
+  updateGhostModeVisibility();
+}
+
+function updateGhostModeVisibility() {
+  if (!form.mode) return;
+  const isGhostMode = form.mode.value === "ghost";
+  document.body.classList.toggle("ghost-mode-active", isGhostMode);
 }
 
 function getAudioContext() {
@@ -619,23 +628,28 @@ async function fetchStatus() {
 }
 
 async function startRace() {
-  if (!form.player1 || !form.player2 || !form.distance || !form.mode || !form.theme || !form.ghostSource || !form.useMock || !form.intervalPreset) {
+  if (!form.player1 || !form.distance || !form.mode || !form.theme || !form.useMock || !form.intervalPreset) {
     return;
   }
 
   const [sprint, rest] = form.intervalPreset.value.split(",").map(Number);
+  const isGhostMode = form.mode.value === "ghost";
+  const playerNames = isGhostMode
+    ? [form.player1.value || "Veslař 1"]
+    : [form.player1.value || "Veslař 1", form.player2.value || "Veslař 2"];
+
   const payload = {
-    player_names: [form.player1.value || "Veslar 1", form.player2.value || "Veslar 2"],
+    player_names: playerNames,
     distance_m: Number(form.distance.value),
     mode: form.mode.value,
     theme: form.theme.value,
-    ghost_source: form.ghostSource.value,
+    ghost_source: isGhostMode ? (form.ghostSource?.value || "none") : "none",
     use_mock_devices: form.useMock.checked,
     interval: form.mode.value === "interval" ? { sprint_s: sprint, rest_s: rest, repeats: 8 } : null,
   };
 
   if (!form.useMock.checked && form.serialPort1 && form.serialPort2 && form.serialPort1.value && form.serialPort2.value) {
-    payload.serial_ports = [form.serialPort1.value, form.serialPort2.value];
+    payload.serial_ports = isGhostMode ? [form.serialPort1.value] : [form.serialPort1.value, form.serialPort2.value];
   }
 
   const response = await fetch("/api/start", {
@@ -722,6 +736,9 @@ function connectSocket() {
 if (form.theme) {
   form.theme.addEventListener("change", () => setTheme(form.theme.value));
 }
+if (form.mode) {
+  form.mode.addEventListener("change", updateGhostModeVisibility);
+}
 if (form.useMock) {
   form.useMock.addEventListener("change", syncUsbControls);
 }
@@ -746,6 +763,7 @@ if (clearHistoryButton) {
 
 async function bootstrap() {
   setTheme(snapshot.theme);
+  updateGhostModeVisibility();
   connectSocket();
 
   const tasks = [fetchSnapshot(), fetchStatus(), loadHistory()];

@@ -19,14 +19,14 @@ class IntervalConfig(BaseModel):
 
 
 class StartRaceRequest(BaseModel):
-    player_names: list[str] = Field(default_factory=lambda: ["Veslar 1", "Veslar 2"], min_length=2, max_length=2)
+    player_names: list[str] = Field(default_factory=lambda: ["Veslar 1", "Veslar 2"], min_length=1, max_length=2)
     distance_m: Literal[500, 1000, 2000] = 1000
     mode: RaceMode = "realtime"
     theme: ThemeName = "river"
     ghost_source: GhostSource = "none"
     interval: IntervalConfig | None = None
     use_mock_devices: bool = True
-    serial_ports: list[str] | None = Field(default=None, min_length=2, max_length=2)
+    serial_ports: list[str] | None = Field(default=None, min_length=1, max_length=2)
 
 
 class TelemetryFrame(BaseModel):

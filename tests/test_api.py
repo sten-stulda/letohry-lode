@@ -37,7 +37,11 @@ def wait_for_race_progress(client: TestClient, timeout_s: float = 5.0) -> dict:
         payload = client.get("/api/race").json()
         if payload["status"] == "racing":
             ranked_lanes = [lane for lane in payload["lanes"] if lane["rank"] in {1, 2}]
-            if len(ranked_lanes) == 2 and any(lane["lead_m"] > 0 for lane in ranked_lanes):
+            # Ghost mode with 1 player has only 1 lane + ghost_lane
+            if payload.get("ghost_lane"):
+                if len(payload["lanes"]) >= 1:
+                    return payload
+            elif len(ranked_lanes) == 2 and any(lane["lead_m"] > 0 for lane in ranked_lanes):
                 return payload
         time.sleep(0.05)
     raise AssertionError("Race did not produce measurable lead within timeout.")
@@ -219,3 +223,48 @@ def test_leaderboard_and_diagnostics_exports(tmp_path: Path) -> None:
         diagnostics_export = client.get("/api/diagnostics/export")
         assert diagnostics_export.status_code == 200
         assert diagnostics_export.headers["content-type"].startswith("text/plain")
+
+
+def test_ghost_mode_with_single_player(tmp_path: Path) -> None:
+    with create_test_client(tmp_path) as client:
+        start_response = client.post(
+            "/api/start",
+            json={
+                "player_names": ["Alice"],
+                "distance_m": 500,
+                "mode": "ghost",
+                "theme": "river",
+                "ghost_source": "previous",
+                "use_mock_devices": True,
+            },
+        )
+        assert start_response.status_code == 200
+        assert start_response.json()["status"] == "countdown"
+
+        racing_payload = wait_for_race_progress(client)
+        assert len(racing_payload["lanes"]) == 1
+        assert racing_payload["ghost_lane"] is not None
+
+        finished_payload = wait_for_race_finish(client)
+        assert finished_payload["status"] == "finished"
+        assert len(finished_payload["lanes"]) == 1
+
+        history_payload = client.get("/api/history")
+        assert len(history_payload.json()["recent_results"]) == 1
+
+
+def test_realtime_mode_requires_two_players(tmp_path: Path) -> None:
+    with create_test_client(tmp_path) as client:
+        response = client.post(
+            "/api/start",
+            json={
+                "player_names": ["Alice"],
+                "distance_m": 500,
+                "mode": "realtime",
+                "theme": "river",
+                "ghost_source": "none",
+                "use_mock_devices": True,
+            },
+        )
+        assert response.status_code == 400
+        assert "two players" in response.json()["detail"].lower()
