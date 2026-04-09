@@ -25,7 +25,7 @@
             Hráč 1
             <input id="player1" value="Veslař 1" maxlength="20" />
           </label>
-          <label id="player2Label" class="ghost-mode-only">
+          <label id="player2Label" class="non-ghost-mode-only">
             Hráč 2
             <input id="player2" value="Veslař 2" maxlength="20" />
           </label>
@@ -61,7 +61,7 @@
               <option value="night">Noc</option>
             </select>
           </label>
-          <label>
+          <label class="non-ghost-mode-only">
             Interval
             <select id="intervalPreset">
               <option value="30,30">30 s / 30 s</option>
@@ -74,7 +74,7 @@
               <option value="">Automaticky</option>
             </select>
           </label>
-          <label>
+          <label class="non-ghost-mode-only">
             Druhá loď USB
             <select id="serialPort2">
               <option value="">Automaticky</option>

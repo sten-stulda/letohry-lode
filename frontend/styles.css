@@ -635,10 +635,20 @@ body:has(.theme-night) {
 }
 
 /* Ghost mode visibility toggles */
+/* Elements that should ONLY show in ghost mode (e.g. ghost source selector) */
 .ghost-mode-only {
   display: none;
 }
 
 body.ghost-mode-active .ghost-mode-only {
   display: block;
+}
+
+/* Elements that should be HIDDEN in ghost mode (e.g. player 2) */
+.non-ghost-mode-only {
+  display: block;
+}
+
+body.ghost-mode-active .non-ghost-mode-only {
+  display: none;
 }

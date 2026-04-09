@@ -95,13 +95,14 @@ function populateSerialPortOptions(statusPayload) {
 }
 
 function syncUsbControls() {
-  if (!form.serialPort1 || !form.serialPort2 || !form.useMock) {
+  if (!form.serialPort1 || !form.serialPort2 || !form.useMock || !form.mode) {
     return;
   }
 
-  const disabled = form.useMock.checked;
-  form.serialPort1.disabled = disabled;
-  form.serialPort2.disabled = disabled;
+  const isMock = form.useMock.checked;
+  const isGhost = form.mode.value === "ghost";
+  form.serialPort1.disabled = isMock;
+  form.serialPort2.disabled = isMock || isGhost;
 }
 
 appShell.classList.add(`performance-${performanceMode}`);
@@ -741,7 +742,10 @@ if (form.theme) {
   form.theme.addEventListener("change", () => setTheme(form.theme.value));
 }
 if (form.mode) {
-  form.mode.addEventListener("change", updateGhostModeVisibility);
+  form.mode.addEventListener("change", () => {
+    updateGhostModeVisibility();
+    syncUsbControls();
+  });
 }
 if (form.useMock) {
   form.useMock.addEventListener("change", syncUsbControls);
