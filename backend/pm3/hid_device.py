@@ -2,25 +2,42 @@
 from __future__ import annotations
 
 import asyncio
-import select
-import struct
 from pathlib import Path
-from time import monotonic
+from typing import Any
 
-from ..config import AppConfig
+try:
+    import usb.core
+    import usb.util
+except ImportError:  # optional at import-time; hard fail only when HID monitor is used
+    usb = None  # type: ignore[assignment]
+
 from ..models import PM3Frame
 from ..services.diagnostics import DiagnosticsService
-from .csafe import CSAFECommand, build_frame, parse_frame
 
-GET_WORKOUT_DATA = 0xA0
+GET_STATUS = 0x80
+GET_CADENCE = 0xA7
+GET_POWER = 0xB4
+PM_GET_WORKTIME = 0xA0
+PM_GET_WORKDISTANCE = 0xA3
+PM_WRAPPER = 0x1A
 
 # Concept2 PM3 USB HID identifiers
 PM3_VENDOR_ID = 0x0425
 PM3_PRODUCT_ID = 0x0000
 
+FRAME_START = 0xF1
+FRAME_END = 0xF2
+FRAME_ESCAPE = 0xF3
+
+REPORT_SIZES = {
+    0x01: 21,
+    0x04: 63,
+    0x02: 121,
+}
+
 
 class PM3HIDMonitor:
-    """Communicate with Concept2 PM3 via USB HID (/dev/hidraw*)."""
+    """Communicate with Concept2 PM3 via USB endpoints (pyusb/libusb)."""
 
     def __init__(
         self,
@@ -34,65 +51,98 @@ class PM3HIDMonitor:
         self.name = name
         self.device_path = device_path
         self.connect_retries = max(connect_retries, 1)
-        self._fd: int | None = None
+        self._usb_dev: Any | None = None
+        self._in_ep: int | None = None
+        self._out_ep: int | None = None
+        self._report_id: int = 0x01
+        self._hid_uniq: str = ""
         self._last_frame = PM3Frame()
         self._read_lock = asyncio.Lock()
         self._diagnostics_service = diagnostics_service
 
     async def connect(self) -> None:
+        if usb is None:
+            raise RuntimeError("pyusb is required for PM3 HID monitor. Install with: pip install pyusb")
+
+        self._hid_uniq = _read_hid_uniq(self.device_path)
         last_error: Exception | None = None
-        for attempt in range(self.connect_retries):
+        for _ in range(self.connect_retries):
             try:
-                self._fd = await asyncio.to_thread(
-                    lambda: open(self.device_path, "r+b", buffering=0)
+                self._usb_dev, self._in_ep, self._out_ep = await asyncio.to_thread(
+                    _open_pm3_usb_device,
+                    self._hid_uniq,
                 )
-                self._log_diagnostic("connect", self.device_path.encode(), "connected")
+                self._log_diagnostic(
+                    "connect",
+                    self.device_path.encode(),
+                    f"connected via usb serial={self._hid_uniq or '-'} in=0x{self._in_ep:02x} out=0x{self._out_ep:02x}",
+                )
                 return
-            except (OSError, PermissionError) as error:
+            except Exception as error:
                 last_error = error
                 self._log_diagnostic("connect_error", str(error).encode(), "connect failed")
                 await asyncio.sleep(0.3)
 
-        perm_hint = ""
-        if isinstance(last_error, PermissionError):
-            perm_hint = " (zkus: sudo usermod -aG plugdev $USER, pak odhlaš/přihlaš)"
+        perm_hint = (
+            " (zkus: sudo cp deploy/raspi/99-pm3-hid.rules /etc/udev/rules.d/ && "
+            "sudo udevadm control --reload-rules && sudo udevadm trigger)"
+        )
         raise RuntimeError(
-            f"Failed to connect to PM3 on {self.device_path}: {last_error}{perm_hint}"
+            f"Failed to connect to PM3 on {self.device_path} (uniq={self._hid_uniq or '-'})"
+            f": {last_error}{perm_hint}"
         )
 
     async def disconnect(self) -> None:
-        if self._fd is not None:
-            await asyncio.to_thread(self._fd.close)
-        self._fd = None
+        if self._usb_dev is not None:
+            await asyncio.to_thread(usb.util.dispose_resources, self._usb_dev)
+        self._usb_dev = None
+        self._in_ep = None
+        self._out_ep = None
 
     async def reset(self) -> None:
         self._last_frame = PM3Frame()
 
     async def read_frame(self) -> PM3Frame:
-        if self._fd is None:
+        if self._usb_dev is None or self._in_ep is None or self._out_ep is None:
             raise RuntimeError("PM3 HID monitor is not connected.")
 
         async with self._read_lock:
-            request = build_frame(CSAFECommand(command_id=GET_WORKOUT_DATA))
-            # Some PM3 HID endpoints expect report ID prefix 0x00, some do not.
-            # Try both to keep polling resilient across kernels/firmware.
+            # Request exactly the fields needed for live race telemetry.
+            command_payload = _build_monitor_command_payload()
+            frame = _build_csafe_frame(command_payload)
             raw_reply = b""
             last_error: Exception | None = None
-            for with_report_id in (True, False):
+            for report_id in _report_fallback_order(self._report_id):
                 try:
-                    hid_request = _build_hid_request(request, with_report_id=with_report_id)
-                    mode = "with-report-id" if with_report_id else "without-report-id"
-                    self._log_diagnostic("tx", hid_request, f"sent HID workout data request ({mode})")
-                    await asyncio.to_thread(self._fd.write, hid_request)
-                    await asyncio.to_thread(self._fd.flush)
-                    # Linux hidraw commonly returns 64-byte reports without explicit report ID.
-                    # Wait for readability first to avoid an unbounded blocking read.
-                    raw_reply = await asyncio.to_thread(_read_hid_report, self._fd, 64, 0.25)
+                    request = _build_report(frame, report_id)
+                    self._log_diagnostic(
+                        "tx",
+                        request,
+                        f"sent PM3 telemetry request (report_id=0x{report_id:02x})",
+                    )
+                    await asyncio.to_thread(
+                        self._usb_dev.write,
+                        self._out_ep,
+                        request,
+                        1500,
+                    )
+                    raw = await asyncio.to_thread(
+                        self._usb_dev.read,
+                        self._in_ep,
+                        len(request),
+                        1500,
+                    )
+                    raw_reply = bytes(raw)
                     if raw_reply:
+                        self._report_id = report_id
                         break
-                except (OSError, IOError) as error:
+                except Exception as error:
                     last_error = error
-                    self._log_diagnostic("rx_error", str(error).encode(), "HID read failed")
+                    self._log_diagnostic(
+                        "rx_error",
+                        str(error).encode(),
+                        f"USB read failed (report_id=0x{report_id:02x})",
+                    )
 
             if not raw_reply and last_error is not None:
                 raise RuntimeError(
@@ -103,25 +153,15 @@ class PM3HIDMonitor:
                 self._log_diagnostic("rx_empty", b"", "no HID response")
                 return self._last_frame
 
-            frame_start_idx = raw_reply.find(0xF1)
-            if frame_start_idx == -1:
-                self._log_diagnostic("rx_empty", raw_reply, "no CSAFE frame start marker")
-                return self._last_frame
-
-            # PM3 HID reports are fixed-size with zero padding after FRAME_END (0xF2).
-            frame_end_idx = raw_reply.find(0xF2, frame_start_idx)
-            if frame_end_idx == -1:
-                self._log_diagnostic("rx_empty", raw_reply, "no CSAFE frame end marker")
-                return self._last_frame
-
-            reply_payload = raw_reply[frame_start_idx : frame_end_idx + 1]
-
             try:
                 self._log_diagnostic("rx", raw_reply, "raw HID reply")
-                message = parse_frame(reply_payload)
+                message = _extract_csafe_payload(raw_reply)
+                if message is None:
+                    self._log_diagnostic("rx_invalid", raw_reply, "failed to parse CSAFE frame")
+                    return self._last_frame
                 self._log_diagnostic("rx_parsed", message, "parsed CSAFE payload")
-                self._last_frame = self._decode_workout_data(message)
-            except (ValueError, IndexError):
+                self._last_frame = self._decode_monitor_payload(message)
+            except (ValueError, IndexError, KeyError):
                 self._log_diagnostic("rx_invalid", raw_reply, "failed to parse HID reply")
                 return self._last_frame
             return self._last_frame
@@ -138,16 +178,32 @@ class PM3HIDMonitor:
         )
 
     @staticmethod
-    def _decode_workout_data(message: bytes) -> PM3Frame:
-        if len(message) < 8:
-            raise ValueError("PM3 reply is too short for workout telemetry.")
+    def _decode_monitor_payload(message: bytes) -> PM3Frame:
+        parsed = _parse_response_payload(message)
 
-        values = list(_chunk_bytes(message, 2))
-        elapsed_s = int.from_bytes(values[0], byteorder="big") / 10
-        distance_m = int.from_bytes(values[1], byteorder="big") / 10
-        pace_per_500_s = float(int.from_bytes(values[2], byteorder="big"))
-        stroke_rate = int.from_bytes(values[3], byteorder="big")
-        watts = int.from_bytes(values[4], byteorder="big") if len(values) > 4 else None
+        elapsed_s = 0.0
+        distance_m = 0.0
+        stroke_rate = 0
+        watts: float | None = None
+
+        work_time_raw = parsed.get("pm_work_time")
+        if work_time_raw and len(work_time_raw) >= 5:
+            elapsed_s = (_le_int(work_time_raw[:4]) + work_time_raw[4]) / 100.0
+
+        work_distance_raw = parsed.get("pm_work_distance")
+        if work_distance_raw and len(work_distance_raw) >= 5:
+            distance_m = (_le_int(work_distance_raw[:4]) + work_distance_raw[4]) / 10.0
+
+        cadence_raw = parsed.get("cadence")
+        if cadence_raw and len(cadence_raw) >= 2:
+            stroke_rate = _le_int(cadence_raw[:2])
+
+        power_raw = parsed.get("power")
+        if power_raw and len(power_raw) >= 2:
+            watts = float(_le_int(power_raw[:2]))
+
+        pace_per_500_s = ((2.8 / watts) ** (1.0 / 3.0)) * 500.0 if watts and watts > 0 else 0.0
+
         return PM3Frame(
             elapsed_s=elapsed_s,
             distance_m=distance_m,
@@ -157,22 +213,211 @@ class PM3HIDMonitor:
         )
 
 
-def _chunk_bytes(payload: bytes, size: int):
-    for index in range(0, len(payload), size):
-        yield payload[index : index + size]
+def _le_int(raw: bytes) -> int:
+    return int.from_bytes(raw, byteorder="little", signed=False)
 
 
-def _read_hid_report(fd, size: int = 64, timeout_s: float = 0.25) -> bytes:
-    ready, _, _ = select.select([fd.fileno()], [], [], timeout_s)
-    if not ready:
-        return b""
-    return fd.read(size)
+def _xor_checksum(payload: bytes) -> int:
+    value = 0
+    for b in payload:
+        value ^= b
+    return value
 
 
-def _build_hid_request(payload: bytes, with_report_id: bool = True) -> bytes:
-    if with_report_id:
-        return (bytes([0x00]) + payload).ljust(64, b"\x00")
-    return payload.ljust(64, b"\x00")
+def _stuff(payload: bytes) -> bytes:
+    out = bytearray()
+    for b in payload:
+        if 0xF0 <= b <= 0xF3:
+            out.append(FRAME_ESCAPE)
+            out.append(b & 0x03)
+        else:
+            out.append(b)
+    return bytes(out)
+
+
+def _unstuff(payload: bytes) -> bytes:
+    out = bytearray()
+    idx = 0
+    while idx < len(payload):
+        b = payload[idx]
+        if b == FRAME_ESCAPE and idx + 1 < len(payload):
+            out.append(0xF0 | payload[idx + 1])
+            idx += 2
+            continue
+        out.append(b)
+        idx += 1
+    return bytes(out)
+
+
+def _build_csafe_frame(command_payload: bytes) -> bytes:
+    message = command_payload + bytes([_xor_checksum(command_payload)])
+    stuffed = _stuff(message)
+    return bytes([FRAME_START]) + stuffed + bytes([FRAME_END])
+
+
+def _build_monitor_command_payload() -> bytes:
+    # Generic commands + PM-specific wrapped commands under 0x1A.
+    wrapped = bytes([PM_GET_WORKTIME, PM_GET_WORKDISTANCE])
+    return bytes([
+        GET_STATUS,
+        GET_CADENCE,
+        GET_POWER,
+        PM_WRAPPER,
+        len(wrapped),
+    ]) + wrapped
+
+
+def _report_fallback_order(preferred: int) -> tuple[int, ...]:
+    ordered = [preferred, 0x01, 0x02, 0x04]
+    deduped: list[int] = []
+    for report_id in ordered:
+        if report_id not in deduped:
+            deduped.append(report_id)
+    return tuple(deduped)
+
+
+def _build_report(frame: bytes, report_id: int) -> bytes:
+    size = REPORT_SIZES.get(report_id)
+    if not size:
+        raise ValueError(f"Unsupported report id: 0x{report_id:02x}")
+    report = bytes([report_id]) + frame
+    if len(report) > size:
+        raise ValueError(f"CSAFE report too long for report id 0x{report_id:02x}")
+    return report.ljust(size, b"\x00")
+
+
+def _extract_csafe_payload(raw_report: bytes) -> bytes | None:
+    try:
+        start_idx = raw_report.index(FRAME_START)
+        end_idx = raw_report.index(FRAME_END, start_idx + 1)
+    except ValueError:
+        return None
+
+    inner = _unstuff(raw_report[start_idx + 1 : end_idx])
+    if len(inner) < 2:
+        return None
+
+    payload = inner[:-1]
+    checksum = inner[-1]
+    if _xor_checksum(payload) != checksum:
+        return None
+    return payload
+
+
+def _parse_response_payload(payload: bytes) -> dict[str, bytes]:
+    if not payload:
+        return {}
+
+    idx = 1  # payload[0] is PM status byte
+    parsed: dict[str, bytes] = {}
+
+    while idx + 1 < len(payload):
+        cmd = payload[idx]
+        idx += 1
+        bytecount = payload[idx]
+        idx += 1
+
+        if cmd == PM_WRAPPER:
+            wrap_end = idx + bytecount
+            while idx + 1 < min(wrap_end, len(payload)):
+                sub_cmd = payload[idx]
+                idx += 1
+                sub_len = payload[idx]
+                idx += 1
+                sub_data = payload[idx : idx + sub_len]
+                idx += sub_len
+                if sub_cmd == PM_GET_WORKTIME:
+                    parsed["pm_work_time"] = sub_data
+                elif sub_cmd == PM_GET_WORKDISTANCE:
+                    parsed["pm_work_distance"] = sub_data
+            idx = max(idx, wrap_end)
+            continue
+
+        data = payload[idx : idx + bytecount]
+        idx += bytecount
+
+        if cmd == GET_CADENCE:
+            parsed["cadence"] = data
+        elif cmd == GET_POWER:
+            parsed["power"] = data
+
+    return parsed
+
+
+def _safe_usb_string(device: Any, index: int | None) -> str:
+    if not index:
+        return ""
+    try:
+        text = usb.util.get_string(device, index)
+        return text or ""
+    except Exception:
+        return ""
+
+
+def _read_hid_uniq(device_path: str) -> str:
+    dev_name = Path(device_path).name
+    uevent_path = Path(f"/sys/class/hidraw/{dev_name}/device/uevent")
+    if not uevent_path.exists():
+        return ""
+    try:
+        for line in uevent_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            if line.startswith("HID_UNIQ="):
+                return line.split("=", 1)[1].strip()
+    except OSError:
+        return ""
+    return ""
+
+
+def _open_pm3_usb_device(hid_uniq: str) -> tuple[Any, int, int]:
+    devices = list(
+        usb.core.find(
+            find_all=True,
+            idVendor=PM3_VENDOR_ID,
+            idProduct=PM3_PRODUCT_ID,
+        )
+        or []
+    )
+    if not devices:
+        raise RuntimeError("No PM3 USB device found via libusb")
+
+    selected = None
+    if hid_uniq:
+        for dev in devices:
+            serial = _safe_usb_string(dev, getattr(dev, "iSerialNumber", None))
+            if serial == hid_uniq:
+                selected = dev
+                break
+
+    if selected is None:
+        selected = devices[0]
+
+    try:
+        if selected.is_kernel_driver_active(0):
+            selected.detach_kernel_driver(0)
+    except Exception:
+        pass
+
+    try:
+        selected.set_configuration()
+    except Exception:
+        pass
+
+    cfg = selected.get_active_configuration()
+    iface = cfg[(0, 0)]
+
+    in_ep = None
+    out_ep = None
+    for endpoint in iface:
+        direction = usb.util.endpoint_direction(endpoint.bEndpointAddress)
+        if direction == usb.util.ENDPOINT_IN:
+            in_ep = endpoint.bEndpointAddress
+        elif direction == usb.util.ENDPOINT_OUT:
+            out_ep = endpoint.bEndpointAddress
+
+    if in_ep is None or out_ep is None:
+        raise RuntimeError("Could not resolve PM3 USB endpoints")
+
+    return selected, in_ep, out_ep
 
 
 def discover_pm3_hid_devices() -> list[str]:
