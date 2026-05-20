@@ -1,4 +1,5 @@
 """Raw HID diagnostic – prints exactly what PM3 sends back."""
+import select
 import sys
 
 DEVICE = sys.argv[1] if len(sys.argv) > 1 else "/dev/hidraw0"
@@ -29,7 +30,11 @@ def send_and_receive(device_path: str, payload: bytes, label: str) -> None:
     try:
         with open(device_path, "r+b", buffering=0) as fd:
             fd.write(request)
-            raw = fd.read(65)
+            ready, _, _ = select.select([fd.fileno()], [], [], 0.5)
+            if not ready:
+                print("RX: timeout (zadna data do 500 ms)")
+                return
+            raw = fd.read(64)
         print(f"RX ({len(raw)} B): {raw.hex(' ')}")
         # Najdi CSAFE rámec
         if 0xF1 in raw and 0xF2 in raw:

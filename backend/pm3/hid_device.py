@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import select
 import struct
 from pathlib import Path
 from time import monotonic
@@ -80,8 +81,9 @@ class PM3HIDMonitor:
             try:
                 await asyncio.to_thread(self._fd.write, hid_request)
                 await asyncio.to_thread(self._fd.flush)
-                # HID input reports for PM3 are 64 bytes, prefixed with report ID
-                raw_reply = await asyncio.to_thread(self._fd.read, 65)
+                # Linux hidraw commonly returns 64-byte reports without explicit report ID.
+                # Wait for readability first to avoid an unbounded blocking read.
+                raw_reply = await asyncio.to_thread(_read_hid_report, self._fd, 64, 0.25)
             except (OSError, IOError) as error:
                 self._log_diagnostic("rx_error", str(error).encode(), "HID read failed")
                 raise RuntimeError(
@@ -92,16 +94,18 @@ class PM3HIDMonitor:
                 self._log_diagnostic("rx_empty", b"", "no HID response")
                 return self._last_frame
 
-            # Strip HID report ID prefix
-            reply_payload = raw_reply[1:] if len(raw_reply) > 1 else raw_reply
-
-            # PM3 HID reports are fixed 64 bytes with zero padding after the CSAFE frame.
-            # Truncate at FRAME_END (0xF2) so parse_frame doesn't choke on trailing zeros.
-            frame_end_idx = reply_payload.find(0xF2)
-            if frame_end_idx == -1:
-                self._log_diagnostic("rx_empty", reply_payload, "no CSAFE frame end marker")
+            frame_start_idx = raw_reply.find(0xF1)
+            if frame_start_idx == -1:
+                self._log_diagnostic("rx_empty", raw_reply, "no CSAFE frame start marker")
                 return self._last_frame
-            reply_payload = reply_payload[: frame_end_idx + 1]
+
+            # PM3 HID reports are fixed-size with zero padding after FRAME_END (0xF2).
+            frame_end_idx = raw_reply.find(0xF2, frame_start_idx)
+            if frame_end_idx == -1:
+                self._log_diagnostic("rx_empty", raw_reply, "no CSAFE frame end marker")
+                return self._last_frame
+
+            reply_payload = raw_reply[frame_start_idx : frame_end_idx + 1]
 
             try:
                 self._log_diagnostic("rx", raw_reply, "raw HID reply")
@@ -147,6 +151,13 @@ class PM3HIDMonitor:
 def _chunk_bytes(payload: bytes, size: int):
     for index in range(0, len(payload), size):
         yield payload[index : index + size]
+
+
+def _read_hid_report(fd, size: int = 64, timeout_s: float = 0.25) -> bytes:
+    ready, _, _ = select.select([fd.fileno()], [], [], timeout_s)
+    if not ready:
+        return b""
+    return fd.read(size)
 
 
 def discover_pm3_hid_devices() -> list[str]:
