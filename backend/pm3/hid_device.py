@@ -178,10 +178,12 @@ def _build_hid_request(payload: bytes, with_report_id: bool = True) -> bytes:
 def discover_pm3_hid_devices() -> list[str]:
     """Discover PM3 monitors connected via USB HID (/dev/hidraw*)."""
     discovered: list[str] = []
+    seen_units: set[str] = set()
 
     for hidraw_path in sorted(Path("/dev").glob("hidraw*")):
         dev_path = str(hidraw_path)
         is_pm3 = False
+        hid_uniq = ""
 
         # Check uevent for HID name
         info_path = Path(f"/sys/class/hidraw/{hidraw_path.name}/device/uevent")
@@ -190,6 +192,10 @@ def discover_pm3_hid_devices() -> list[str]:
                 content = info_path.read_text(encoding="utf-8", errors="ignore")
                 if "Concept2" in content or "0425:0000" in content:
                     is_pm3 = True
+                for line in content.splitlines():
+                    if line.startswith("HID_UNIQ="):
+                        hid_uniq = line.split("=", 1)[1].strip()
+                        break
             except (OSError, PermissionError):
                 pass
 
@@ -205,6 +211,10 @@ def discover_pm3_hid_devices() -> list[str]:
                     pass
 
         if is_pm3:
+            unit_key = hid_uniq or dev_path
+            if unit_key in seen_units:
+                continue
+            seen_units.add(unit_key)
             discovered.append(dev_path)
 
     return discovered

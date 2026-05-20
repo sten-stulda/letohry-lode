@@ -5,7 +5,7 @@ from pathlib import Path
 import select
 import sys
 
-DEVICE = sys.argv[1] if len(sys.argv) > 1 else "/dev/hidraw0"
+DEVICE = sys.argv[1] if len(sys.argv) > 1 else ""
 
 # CSAFE frame pro command 0xA0 (GET_WORKOUT_DATA) s length byte
 # [0xF1, 0xA0, 0x00, 0xA0, 0xF2]  - formát s length byte (aktuální kód)
@@ -41,6 +41,13 @@ def list_pm3_candidates() -> list[str]:
         if any(token in f"{uevent} {name}" for token in ("Concept2", "PM3", "0425", "17A4", "17a4")):
             candidates.append(f"/dev/{hidraw.name}")
     return candidates
+
+
+def resolve_devices() -> list[str]:
+    if DEVICE:
+        return [DEVICE]
+    candidates = list_pm3_candidates()
+    return candidates if candidates else ["/dev/hidraw0"]
 
 
 def print_device_identity(device_path: str) -> None:
@@ -80,7 +87,8 @@ def _send_request(fd, payload: bytes, with_report_id: bool) -> bytes:
     return request
 
 
-def send_and_receive(device_path: str, payload: bytes, label: str) -> None:
+def send_and_receive(device_path: str, payload: bytes, label: str) -> bool:
+    got_response = False
     print(f"\n=== {label} ===")
     for with_report_id in (True, False):
         mode = "s report ID 0x00" if with_report_id else "bez report ID"
@@ -93,6 +101,7 @@ def send_and_receive(device_path: str, payload: bytes, label: str) -> None:
                     print(f"RX [{mode}]: timeout (zadna data do 800 ms)")
                     continue
                 raw = fd.read(64)
+                got_response = True
 
             print(f"RX [{mode}] ({len(raw)} B): {raw.hex(' ')}")
             if 0xF1 in raw and 0xF2 in raw:
@@ -106,10 +115,27 @@ def send_and_receive(device_path: str, payload: bytes, label: str) -> None:
                 print("  Zadny CSAFE ramec nenalezen (0xF1/0xF2 chybi)")
         except Exception as e:
             print(f"  CHYBA [{mode}]: {e}")
+    return got_response
 
 
-print(f"Testování PM3 na {DEVICE}")
-print_device_identity(DEVICE)
-send_and_receive(DEVICE, CSAFE_WITH_LEN, "0xA0 s length byte (aktuální kód)")
-send_and_receive(DEVICE, CSAFE_SHORT,    "0xA0 bez length byte (short CSAFE)")
-send_and_receive(DEVICE, CSAFE_MULTI,    "Více příkazů: 0xA0 0xA1 0xA5 0xA7 0xB4")
+devices = resolve_devices()
+print(f"Testování PM3 na: {devices}")
+responsive_devices: list[str] = []
+
+for dev in devices:
+    print("\n" + "=" * 72)
+    print(f"Zarizeni: {dev}")
+    print("=" * 72)
+    print_device_identity(dev)
+    got_any = False
+    got_any |= send_and_receive(dev, CSAFE_WITH_LEN, "0xA0 s length byte (aktuální kód)")
+    got_any |= send_and_receive(dev, CSAFE_SHORT, "0xA0 bez length byte (short CSAFE)")
+    got_any |= send_and_receive(dev, CSAFE_MULTI, "Více příkazů: 0xA0 0xA1 0xA5 0xA7 0xB4")
+    if got_any:
+        responsive_devices.append(dev)
+
+print("\n" + "-" * 72)
+if responsive_devices:
+    print(f"HID endpoint(y) s odpovedi: {responsive_devices}")
+else:
+    print("Nenalezen zadny HID endpoint s odpovedi.")
