@@ -125,7 +125,7 @@ class RaceManager:
         for index, name in enumerate(request.player_names):
             port = resolved_ports[index]
             # Detect if this is an HID device or a serial port
-            if port.startswith("/dev/hidraw"):
+            if port.startswith("/dev/hidraw") or port.startswith("usb:"):
                 monitor: RowingMonitor = PM3HIDMonitor(
                     lane_id=index + 1,
                     name=name,

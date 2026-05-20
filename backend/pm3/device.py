@@ -13,7 +13,7 @@ from ..config import AppConfig
 from ..models import PM3Frame
 from ..services.diagnostics import DiagnosticsService
 from .csafe import CSAFECommand, build_frame, parse_frame
-from .hid_device import PM3HIDMonitor, discover_pm3_hid_devices
+from .hid_device import PM3HIDMonitor, discover_pm3_hid_devices, discover_pm3_usb_devices
 
 
 GET_WORKOUT_DATA = 0xA0
@@ -220,7 +220,7 @@ def discover_pm3_ports(config: AppConfig) -> list[str]:
 
 
 def resolve_pm3_ports(config: AppConfig, expected_count: int = 2) -> list[str]:
-    """Resolve PM3 device paths, trying serial ports first, then HID devices."""
+    """Resolve PM3 device paths, trying serial, HID and direct USB discovery."""
     # Try serial ports first
     discovered = discover_pm3_ports(config)
 
@@ -233,12 +233,23 @@ def resolve_pm3_ports(config: AppConfig, expected_count: int = 2) -> list[str]:
             if len(discovered) >= expected_count:
                 break
 
+    # Final fallback: direct USB enumeration via libusb.
+    if len(discovered) < expected_count:
+        usb_devices = discover_pm3_usb_devices()
+        for usb_dev in usb_devices:
+            if usb_dev not in discovered:
+                discovered.append(usb_dev)
+            if len(discovered) >= expected_count:
+                break
+
     if len(discovered) < expected_count:
         # Check if we have any HID devices at all for a better error message
         hid_devices = discover_pm3_hid_devices()
-        if hid_devices:
+        usb_devices = discover_pm3_usb_devices()
+        if hid_devices or usb_devices:
+            candidates = hid_devices + [d for d in usb_devices if d not in hid_devices]
             hint = (
-                f"Found {len(hid_devices)} PM3 as HID device(s) ({', '.join(hid_devices)}), "
+                f"Found {len(candidates)} PM3 USB candidate(s) ({', '.join(candidates)}), "
                 f"but need {expected_count}. "
                 "Check USB connections or use Mock PM3."
             )

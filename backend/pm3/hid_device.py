@@ -355,6 +355,9 @@ def _safe_usb_string(device: Any, index: int | None) -> str:
 
 
 def _read_hid_uniq(device_path: str) -> str:
+    if device_path.startswith("usb:"):
+        return device_path.split(":", 1)[1].strip()
+
     dev_name = Path(device_path).name
     uevent_path = Path(f"/sys/class/hidraw/{dev_name}/device/uevent")
     if not uevent_path.exists():
@@ -418,6 +421,38 @@ def _open_pm3_usb_device(hid_uniq: str) -> tuple[Any, int, int]:
         raise RuntimeError("Could not resolve PM3 USB endpoints")
 
     return selected, in_ep, out_ep
+
+
+def discover_pm3_usb_devices() -> list[str]:
+    """Discover PM3 monitors directly via libusb and return usb:<serial> identifiers."""
+    if usb is None:
+        return []
+
+    discovered: list[str] = []
+    seen_serials: set[str] = set()
+
+    try:
+        devices = list(
+            usb.core.find(
+                find_all=True,
+                idVendor=PM3_VENDOR_ID,
+                idProduct=PM3_PRODUCT_ID,
+            )
+            or []
+        )
+    except Exception:
+        return []
+
+    for dev in devices:
+        serial = _safe_usb_string(dev, getattr(dev, "iSerialNumber", None)).strip()
+        if not serial:
+            serial = f"bus{getattr(dev, 'bus', 0)}-addr{getattr(dev, 'address', 0)}"
+        if serial in seen_serials:
+            continue
+        seen_serials.add(serial)
+        discovered.append(f"usb:{serial}")
+
+    return discovered
 
 
 def discover_pm3_hid_devices() -> list[str]:
