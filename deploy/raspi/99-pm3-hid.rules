@@ -1,2 +1,5 @@
 # Concept2 PM3 Performance Monitor - grant read/write access to all users
 SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0425", ATTRS{idProduct}=="0000", MODE="0666"
+
+# pyusb/libusb accesses PM3 via /dev/bus/usb/*, so grant permissions there too
+SUBSYSTEM=="usb", ATTR{idVendor}=="0425", ATTR{idProduct}=="0000", MODE="0666"
