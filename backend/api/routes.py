@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from pathlib import Path
 
@@ -8,7 +9,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from ..models import AppStatus, DiagnosticsStatus, HistoryResponse, RaceSnapshot, StartRaceRequest
 from ..pm3.device import discover_pm3_ports
-from ..pm3.hid_device import discover_pm3_hid_devices
+from ..pm3.hid_device import discover_pm3_hid_devices, discover_pm3_usb_devices
 
 
 router = APIRouter()
@@ -25,9 +26,12 @@ async def get_status(request: Request) -> AppStatus:
     race_manager = request.app.state.race_manager
     config = request.app.state.config
     snapshot = await race_manager.get_snapshot()
-    discovered_ports = discover_pm3_ports(config)
-    hid_devices = discover_pm3_hid_devices()
+
+    # Discovery can block in problematic USB/WSL states. Keep status endpoint responsive.
+    discovered_ports, hid_devices, usb_devices = await _discover_ports_with_timeout(config)
+
     all_discovered = discovered_ports + [d for d in hid_devices if d not in discovered_ports]
+    all_discovered += [d for d in usb_devices if d not in all_discovered]
     return AppStatus(
         app_name=config.app_name,
         version=config.version,
@@ -37,6 +41,19 @@ async def get_status(request: Request) -> AppStatus:
         configured_serial_ports=list(config.default_serial_ports),
         using_mock_devices=race_manager.using_mock_devices,
     )
+
+
+async def _discover_ports_with_timeout(config, timeout_s: float = 1.5) -> tuple[list[str], list[str], list[str]]:
+    def _run_discovery() -> tuple[list[str], list[str], list[str]]:
+        serial = discover_pm3_ports(config)
+        hid = discover_pm3_hid_devices()
+        usb = discover_pm3_usb_devices()
+        return serial, hid, usb
+
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(_run_discovery), timeout=timeout_s)
+    except Exception:
+        return [], [], []
 
 
 @router.get("/api/race", response_model=RaceSnapshot)

@@ -113,6 +113,28 @@ pip install -r requirements-dev.txt
 ls /dev/ttyUSB*
 ```
 
+Poznamka pro WSL: pokud aplikaci spoustis ve Windows Subsystem for Linux, USB zarizeni se do Linuxu neprenasi automaticky. PM3 musis nejdriv pripojit do WSL pres `usbipd-win` z Windows terminalu s admin pravy:
+
+```powershell
+usbipd list
+usbipd bind --busid X-Y
+usbipd attach --wsl --busid X-Y
+```
+
+Stejny krok lze zjednodusit pripravenym PowerShell skriptem (spustit jako Administrator):
+
+```powershell
+./scripts/attach_pm3_to_wsl.ps1
+```
+
+Volitelne lze cilit konkretní distribuci:
+
+```powershell
+./scripts/attach_pm3_to_wsl.ps1 -Distro Ubuntu
+```
+
+Pro dva monitory opakuj attach pro oba bus ID. Bez toho backend ve WSL PM3 neuvidi ani pres `hidraw`, ani pres `pyusb`.
+
 4. Nastav porty, pokud nepouzivas mock rezim:
 
 ```bash
@@ -270,6 +292,14 @@ Automaticky sber diagnostiky:
 chmod +x scripts/collect_pm3_diagnostics.sh
 ./scripts/collect_pm3_diagnostics.sh
 ```
+
+Z Windows PowerShellu muzes spustit ekvivalentni wrapper:
+
+```powershell
+./scripts/collect_pm3_diagnostics.ps1
+```
+
+Oba skripty pouzivaji stejny backend [scripts/collect_pm3_diagnostics.py](/home/stulda/projekty/letohry-lode/scripts/collect_pm3_diagnostics.py), takze vystup je stejny ve WSL i na Windows hostu.
 
 ## systemd a kiosk na Raspberry Pi
 

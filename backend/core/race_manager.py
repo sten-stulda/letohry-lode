@@ -163,7 +163,14 @@ class RaceManager:
         total_distance = float(request.distance_m)
 
         while True:
-            frames = await asyncio.gather(*(monitor.read_frame() for monitor in self.monitors), return_exceptions=True)
+            # PM3 USB/libusb transport on WSL is prone to "Resource busy" when polled in parallel.
+            # Poll lanes sequentially to keep endpoint access stable.
+            frames: list[PM3Frame | Exception] = []
+            for monitor in self.monitors:
+                try:
+                    frames.append(await monitor.read_frame())
+                except Exception as error:  # keep race loop resilient per lane
+                    frames.append(error)
             lane_distances: list[float] = []
             all_finished = True
 
@@ -198,13 +205,13 @@ class RaceManager:
         previous_elapsed = lane.elapsed_s
 
         if lane.status == "finished":
-            lane.connected = True
+            lane.connected = frame.connected
             return
 
         next_distance = min(frame.distance_m, total_distance)
         crossed_finish = previous_distance < total_distance <= frame.distance_m
 
-        lane.connected = True
+        lane.connected = frame.connected
         lane.distance_m = next_distance
         lane.pace_per_500_s = frame.pace_per_500_s
         lane.stroke_rate = frame.stroke_rate

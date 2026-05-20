@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,7 @@ from ..services.diagnostics import DiagnosticsService
 
 GET_CADENCE = 0xA7
 GET_POWER = 0xB4
+GO_IN_USE = 0x85
 PM_GET_WORKTIME = 0xA0
 PM_GET_WORKDISTANCE = 0xA3
 PM_WRAPPER = 0x1A
@@ -58,6 +60,7 @@ class PM3HIDMonitor:
         self._last_frame = PM3Frame()
         self._read_lock = asyncio.Lock()
         self._diagnostics_service = diagnostics_service
+        self._consecutive_telemetry_failures = 0
 
     async def connect(self) -> None:
         if usb is None:
@@ -76,16 +79,14 @@ class PM3HIDMonitor:
                     self.device_path.encode(),
                     f"connected via usb serial={self._hid_uniq or '-'} in=0x{self._in_ep:02x} out=0x{self._out_ep:02x}",
                 )
+                await self._prime_monitor()
                 return
             except Exception as error:
                 last_error = error
                 self._log_diagnostic("connect_error", str(error).encode(), "connect failed")
                 await asyncio.sleep(0.3)
 
-        perm_hint = (
-            " (zkus: sudo cp deploy/raspi/99-pm3-hid.rules /etc/udev/rules.d/ && "
-            "sudo udevadm control --reload-rules && sudo udevadm trigger)"
-        )
+        perm_hint = _build_connect_hint()
         raise RuntimeError(
             f"Failed to connect to PM3 on {self.device_path} (uniq={self._hid_uniq or '-'})"
             f": {last_error}{perm_hint}"
@@ -100,6 +101,7 @@ class PM3HIDMonitor:
 
     async def reset(self) -> None:
         self._last_frame = PM3Frame()
+        self._consecutive_telemetry_failures = 0
 
     async def read_frame(self) -> PM3Frame:
         if self._usb_dev is None or self._in_ep is None or self._out_ep is None:
@@ -108,29 +110,17 @@ class PM3HIDMonitor:
         async with self._read_lock:
             # Request exactly the fields needed for live race telemetry.
             command_payload = _build_monitor_command_payload()
-            frame = _build_csafe_frame(command_payload)
             raw_reply = b""
             last_error: Exception | None = None
             for report_id in _report_fallback_order(self._report_id):
                 try:
-                    request = _build_report(frame, report_id)
+                    request = _build_report(_build_csafe_frame(command_payload), report_id)
                     self._log_diagnostic(
                         "tx",
                         request,
                         f"sent PM3 telemetry request (report_id=0x{report_id:02x})",
                     )
-                    await asyncio.to_thread(
-                        self._usb_dev.write,
-                        self._out_ep,
-                        request,
-                        1500,
-                    )
-                    raw = await asyncio.to_thread(
-                        self._usb_dev.read,
-                        self._in_ep,
-                        len(request),
-                        1500,
-                    )
+                    raw = await asyncio.to_thread(self._write_then_read, request)
                     raw_reply = bytes(raw)
                     if raw_reply:
                         self._report_id = report_id
@@ -142,14 +132,23 @@ class PM3HIDMonitor:
                         str(error).encode(),
                         f"USB read failed (report_id=0x{report_id:02x})",
                     )
+                    if "resource busy" in str(error).lower():
+                        # Back off immediately instead of blasting more report-id retries.
+                        break
 
             if not raw_reply and last_error is not None:
-                raise RuntimeError(
-                    f"PM3 HID read failed on {self.device_path}: {last_error}"
-                ) from last_error
+                self._log_diagnostic("rx_empty", str(last_error).encode(), "no telemetry response; keeping last frame")
+                self._consecutive_telemetry_failures += 1
+                # After 10 consecutive timeouts, mark as disconnected to signal UI that telemetry is unavailable.
+                if self._consecutive_telemetry_failures >= 10:
+                    self._last_frame.connected = False
+                return self._last_frame
 
             if not raw_reply:
                 self._log_diagnostic("rx_empty", b"", "no HID response")
+                self._consecutive_telemetry_failures += 1
+                if self._consecutive_telemetry_failures >= 10:
+                    self._last_frame.connected = False
                 return self._last_frame
 
             try:
@@ -159,11 +158,53 @@ class PM3HIDMonitor:
                     self._log_diagnostic("rx_invalid", raw_reply, "failed to parse CSAFE frame")
                     return self._last_frame
                 self._log_diagnostic("rx_parsed", message, "parsed CSAFE payload")
-                self._last_frame = self._decode_monitor_payload(message)
+                new_frame = self._decode_monitor_payload(message)
+                # Preserve connected flag from previous frame to track telemetry availability
+                new_frame.connected = self._last_frame.connected
+                self._last_frame = new_frame
+                self._consecutive_telemetry_failures = 0  # Reset on successful parse
             except (ValueError, IndexError, KeyError):
                 self._log_diagnostic("rx_invalid", raw_reply, "failed to parse HID reply")
+                self._consecutive_telemetry_failures += 1
+                if self._consecutive_telemetry_failures >= 10:
+                    self._last_frame.connected = False
                 return self._last_frame
             return self._last_frame
+
+    async def _prime_monitor(self) -> None:
+        # PM3 may ignore workout telemetry until it has entered the in-use state.
+        await asyncio.to_thread(self._send_command_no_reply, bytes([GO_IN_USE]))
+
+    def _send_command_no_reply(self, command_payload: bytes) -> None:
+        if self._usb_dev is None:
+            return
+        frame = _build_csafe_frame(command_payload)
+        last_error: Exception | None = None
+        for report_id in _report_fallback_order(self._report_id):
+            try:
+                request = _build_report(frame, report_id)
+                self._log_diagnostic(
+                    "tx",
+                    request,
+                    f"sent PM3 init command (report_id=0x{report_id:02x})",
+                )
+                self._usb_dev.write(self._out_ep, request, timeout=1500)
+                try:
+                    raw = bytes(self._usb_dev.read(self._in_ep, len(request), timeout=250))
+                    if raw:
+                        self._log_diagnostic("rx", raw, "raw reply to PM3 init command")
+                except Exception:
+                    pass
+                self._report_id = report_id
+                return
+            except Exception as error:
+                last_error = error
+        if last_error is not None:
+            self._log_diagnostic("rx_error", str(last_error).encode(), "PM3 init command failed")
+
+    def _write_then_read(self, request: bytes) -> bytes:
+        self._usb_dev.write(self._out_ep, request, timeout=1500)
+        return bytes(self._usb_dev.read(self._in_ep, len(request), timeout=1500))
 
     def _log_diagnostic(self, direction: str, payload: bytes, note: str | None = None) -> None:
         if not self._diagnostics_service:
@@ -498,3 +539,29 @@ def discover_pm3_hid_devices() -> list[str]:
             discovered.append(dev_path)
 
     return discovered
+
+
+def _running_in_wsl() -> bool:
+    if os.getenv("WSL_DISTRO_NAME"):
+        return True
+
+    try:
+        kernel_release = Path("/proc/sys/kernel/osrelease").read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
+    lowered = kernel_release.lower()
+    return "microsoft" in lowered or "wsl" in lowered
+
+
+def _build_connect_hint() -> str:
+    if _running_in_wsl():
+        return (
+            " (WSL hint: attach PM3 from Windows first: usbipd list, usbipd bind --busid X-Y, "
+            "usbipd attach --wsl --busid X-Y. If libusb access still fails, use WinUSB driver on Windows "
+            "for the PM3 USB interface.)"
+        )
+
+    return (
+        " (zkus: sudo cp deploy/raspi/99-pm3-hid.rules /etc/udev/rules.d/ && "
+        "sudo udevadm control --reload-rules && sudo udevadm trigger)"
+    )

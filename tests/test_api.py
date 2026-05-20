@@ -273,3 +273,24 @@ def test_realtime_mode_requires_two_players(tmp_path: Path) -> None:
         )
         assert response.status_code == 400
         assert "two players" in response.json()["detail"].lower()
+
+
+def test_status_endpoint_stays_responsive_when_discovery_blocks(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _slow_discovery(*_args, **_kwargs):
+        time.sleep(5)
+        return []
+
+    monkeypatch.setattr("backend.api.routes.discover_pm3_ports", _slow_discovery)
+    monkeypatch.setattr("backend.api.routes.discover_pm3_hid_devices", _slow_discovery)
+    monkeypatch.setattr("backend.api.routes.discover_pm3_usb_devices", _slow_discovery)
+
+    with create_test_client(tmp_path) as client:
+        started = time.monotonic()
+        response = client.get("/api/status")
+        elapsed = time.monotonic() - started
+
+    assert response.status_code == 200
+    assert elapsed < 3.0

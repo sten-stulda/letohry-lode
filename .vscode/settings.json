@@ -1,0 +1,16 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^source \\.venv/bin/activate && python run\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^source \\.venv/bin/activate && python3 test_pm3_pyusb\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^source \\.venv/bin/activate && python3 test_pm3_raw\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

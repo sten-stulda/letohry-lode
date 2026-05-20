@@ -105,6 +105,7 @@ class DiagnosticsStatus(BaseModel):
 
 
 class PM3Frame(BaseModel):
+    connected: bool = True
     elapsed_s: float = 0.0
     distance_m: float = 0.0
     pace_per_500_s: float = 0.0

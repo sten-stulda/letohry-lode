@@ -205,6 +205,22 @@ body:has(.kiosk-shell) {
   overflow: hidden;
 }
 
+.score-card.not-connected {
+  background: rgba(18, 71, 94, 0.04);
+  opacity: 0.7;
+}
+
+.connection-warning {
+  margin: 0 0 8px 0;
+  padding: 8px;
+  background: rgba(201, 95, 50, 0.15);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .kiosk-shell .score-card {
   display: grid;
   gap: 6px;

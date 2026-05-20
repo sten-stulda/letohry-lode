@@ -171,13 +171,15 @@ function renderScoreboard(currentSnapshot = snapshot) {
       const gapLabel = lane.rank === 1 ? "Náskok" : "Ztráta";
       const gapValue = `${Math.abs(lane.lead_m).toFixed(1)} m`;
       const boatBadge = `<span class="rank-pill">Kocábka ${index + 1}</span>`;
+      const connectionStatus = !lane.connected ? `<p class="connection-warning">⚠️ Zařízení nereaguje na telemetrii</p>` : "";
 
       return `
-        <article class="score-card">
+        <article class="score-card${!lane.connected ? ' not-connected' : ''}">
           <div class="score-card-head">
             <h2>${lane.name}</h2>
             ${boatBadge}
           </div>
+          ${connectionStatus}
           <div class="metric-row">
             <div class="metric"><span>Metry</span><strong>${lane.distance_m.toFixed(0)}</strong></div>
             <div class="metric"><span>Tempo</span><strong>${formatPace(lane.pace_per_500_s)}</strong></div>

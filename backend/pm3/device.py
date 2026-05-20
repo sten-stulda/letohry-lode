@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Iterable
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from time import monotonic
 
@@ -257,8 +258,25 @@ def resolve_pm3_ports(config: AppConfig, expected_count: int = 2) -> list[str]:
             hint = (
                 "Set ROWING_PORT_1 and ROWING_PORT_2 explicitly or connect both monitors over USB."
             )
+            if _running_in_wsl():
+                hint += (
+                    " Running under WSL: Linux will not see PM3 USB devices until you attach them "
+                    "from Windows using usbipd-win (usbipd list, usbipd bind --busid X-Y, "
+                    "usbipd attach --wsl --busid X-Y) or run the app directly on Windows/Raspberry Pi."
+                )
         raise RuntimeError(
             f"Not enough PM3 devices detected. "
             f"Expected {expected_count}, found {len(discovered)}. {hint}"
         )
     return discovered[:expected_count]
+
+
+def _running_in_wsl() -> bool:
+    if os.getenv("WSL_DISTRO_NAME"):
+        return True
+
+    try:
+        kernel_release = Path("/proc/sys/kernel/osrelease").read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
+    return "microsoft" in kernel_release.lower() or "wsl" in kernel_release.lower()

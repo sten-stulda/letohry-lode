@@ -23,6 +23,22 @@ Ocekavany stav:
 
 Pripoj oba PM3 monitory pres USB-B kabely a zkontroluj, ze je Linux vidi:
 
+Pokud bezis ve WSL na Windows, PM3 se v Linuxu samy neobjevi. Nejdriv je pripoj do WSL pres `usbipd-win` z Windows terminalu s admin pravy:
+
+```powershell
+usbipd list
+usbipd bind --busid X-Y
+usbipd attach --wsl --busid X-Y
+```
+
+Praktictejsi varianta je pouzit pripraveny skript (Windows PowerShell jako Administrator):
+
+```powershell
+./scripts/attach_pm3_to_wsl.ps1
+```
+
+To same proved pro oba PM3. Teprve potom ma smysl kontrolovat `hidraw` nebo spoustet backend ve WSL.
+
 ```bash
 ls /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
 python - <<'PY'
@@ -37,6 +53,7 @@ Poznamenej si:
 - nazvy portu
 - popis zarizeni
 - USB VID/PID, pokud jsou videt v `hwid`
+- pokud bezis ve WSL a nic nevidis, zkontroluj znovu `usbipd list` na Windows hostu
 
 ## 3. Spusteni bez mock rezimu
 
@@ -84,6 +101,12 @@ Pouzij pripraveny skript:
 
 ```bash
 ./scripts/collect_pm3_diagnostics.sh
+```
+
+Nebo z Windows PowerShellu:
+
+```powershell
+./scripts/collect_pm3_diagnostics.ps1
 ```
 
 Nebo rucne:
