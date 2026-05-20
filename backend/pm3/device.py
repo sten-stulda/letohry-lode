@@ -14,7 +14,7 @@ from ..config import AppConfig
 from ..models import PM3Frame
 from ..services.diagnostics import DiagnosticsService
 from .csafe import CSAFECommand, build_frame, parse_frame
-from .hid_device import PM3HIDMonitor, discover_pm3_hid_devices, discover_pm3_usb_devices
+from .hid_device import PM3HIDMonitor, discover_pm3_hid_devices, discover_pm3_usb_devices, pm3_device_identity
 
 
 GET_WORKOUT_DATA = 0xA0
@@ -222,15 +222,25 @@ def discover_pm3_ports(config: AppConfig) -> list[str]:
 
 def resolve_pm3_ports(config: AppConfig, expected_count: int = 2) -> list[str]:
     """Resolve PM3 device paths, trying serial, HID and direct USB discovery."""
+    discovered: list[str] = []
+    seen_identities: set[str] = set()
+
+    def add_candidate(device_path: str) -> None:
+        identity = pm3_device_identity(device_path)
+        if identity in seen_identities:
+            return
+        seen_identities.add(identity)
+        discovered.append(device_path)
+
     # Try serial ports first
-    discovered = discover_pm3_ports(config)
+    for serial_port in discover_pm3_ports(config):
+        add_candidate(serial_port)
 
     # If not enough serial ports, also try HID devices
     if len(discovered) < expected_count:
         hid_devices = discover_pm3_hid_devices()
         for hid_dev in hid_devices:
-            if hid_dev not in discovered:
-                discovered.append(hid_dev)
+            add_candidate(hid_dev)
             if len(discovered) >= expected_count:
                 break
 
@@ -238,8 +248,7 @@ def resolve_pm3_ports(config: AppConfig, expected_count: int = 2) -> list[str]:
     if len(discovered) < expected_count:
         usb_devices = discover_pm3_usb_devices()
         for usb_dev in usb_devices:
-            if usb_dev not in discovered:
-                discovered.append(usb_dev)
+            add_candidate(usb_dev)
             if len(discovered) >= expected_count:
                 break
 

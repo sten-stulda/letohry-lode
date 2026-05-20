@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from backend.config import AppConfig
 from backend.pm3.csafe import CSAFECommand, build_frame, parse_frame
-from backend.pm3.device import discover_pm3_ports
+from backend.pm3.device import discover_pm3_ports, resolve_pm3_ports
 from backend.pm3.hid_device import _build_monitor_command_payload
 
 
@@ -21,3 +21,18 @@ def test_port_discovery_prefers_existing_explicit_paths() -> None:
 def test_pm3_monitor_payload_matches_pyrow_ordering() -> None:
     payload = _build_monitor_command_payload()
     assert payload == bytes([0x1A, 0x02, 0xA0, 0xA3, 0xA7, 0xB4])
+
+
+def test_resolve_pm3_ports_deduplicates_same_physical_device(monkeypatch) -> None:
+    config = AppConfig()
+
+    monkeypatch.setattr("backend.pm3.device.discover_pm3_ports", lambda _cfg: [])
+    monkeypatch.setattr("backend.pm3.device.discover_pm3_hid_devices", lambda: ["/dev/hidraw0"])
+    monkeypatch.setattr("backend.pm3.device.discover_pm3_usb_devices", lambda: ["usb:ABC123"])
+    monkeypatch.setattr("backend.pm3.device.pm3_device_identity", lambda path: "serial:ABC123")
+
+    try:
+        resolve_pm3_ports(config, expected_count=2)
+        assert False, "Expected RuntimeError for single physical PM3 alias"
+    except RuntimeError as error:
+        assert "Expected 2, found 1" in str(error)

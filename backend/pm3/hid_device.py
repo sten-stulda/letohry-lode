@@ -412,6 +412,20 @@ def _read_hid_uniq(device_path: str) -> str:
     return ""
 
 
+def pm3_device_identity(device_path: str) -> str:
+    """Return a stable identity key for a PM3 path across HID/USB representations."""
+    if device_path.startswith("usb:"):
+        serial = device_path.split(":", 1)[1].strip()
+        return f"serial:{serial}" if serial else f"path:{device_path}"
+
+    if device_path.startswith("/dev/hidraw"):
+        hid_uniq = _read_hid_uniq(device_path)
+        if hid_uniq:
+            return f"serial:{hid_uniq}"
+
+    return f"path:{device_path}"
+
+
 def _open_pm3_usb_device(hid_uniq: str) -> tuple[Any, int, int]:
     devices = list(
         usb.core.find(
