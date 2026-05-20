@@ -74,21 +74,30 @@ class PM3HIDMonitor:
 
         async with self._read_lock:
             request = build_frame(CSAFECommand(command_id=GET_WORKOUT_DATA))
-            # CSAFE command wrapped in HID output report (report ID 0x00)
-            # PM3 expects a fixed 64-byte HID output report (report ID + 63 bytes padded)
-            hid_request = (bytes([0x00]) + request).ljust(64, b"\x00")
-            self._log_diagnostic("tx", hid_request, "sent HID workout data request")
-            try:
-                await asyncio.to_thread(self._fd.write, hid_request)
-                await asyncio.to_thread(self._fd.flush)
-                # Linux hidraw commonly returns 64-byte reports without explicit report ID.
-                # Wait for readability first to avoid an unbounded blocking read.
-                raw_reply = await asyncio.to_thread(_read_hid_report, self._fd, 64, 0.25)
-            except (OSError, IOError) as error:
-                self._log_diagnostic("rx_error", str(error).encode(), "HID read failed")
+            # Some PM3 HID endpoints expect report ID prefix 0x00, some do not.
+            # Try both to keep polling resilient across kernels/firmware.
+            raw_reply = b""
+            last_error: Exception | None = None
+            for with_report_id in (True, False):
+                try:
+                    hid_request = _build_hid_request(request, with_report_id=with_report_id)
+                    mode = "with-report-id" if with_report_id else "without-report-id"
+                    self._log_diagnostic("tx", hid_request, f"sent HID workout data request ({mode})")
+                    await asyncio.to_thread(self._fd.write, hid_request)
+                    await asyncio.to_thread(self._fd.flush)
+                    # Linux hidraw commonly returns 64-byte reports without explicit report ID.
+                    # Wait for readability first to avoid an unbounded blocking read.
+                    raw_reply = await asyncio.to_thread(_read_hid_report, self._fd, 64, 0.25)
+                    if raw_reply:
+                        break
+                except (OSError, IOError) as error:
+                    last_error = error
+                    self._log_diagnostic("rx_error", str(error).encode(), "HID read failed")
+
+            if not raw_reply and last_error is not None:
                 raise RuntimeError(
-                    f"PM3 HID read failed on {self.device_path}: {error}"
-                ) from error
+                    f"PM3 HID read failed on {self.device_path}: {last_error}"
+                ) from last_error
 
             if not raw_reply:
                 self._log_diagnostic("rx_empty", b"", "no HID response")
@@ -158,6 +167,12 @@ def _read_hid_report(fd, size: int = 64, timeout_s: float = 0.25) -> bytes:
     if not ready:
         return b""
     return fd.read(size)
+
+
+def _build_hid_request(payload: bytes, with_report_id: bool = True) -> bytes:
+    if with_report_id:
+        return (bytes([0x00]) + payload).ljust(64, b"\x00")
+    return payload.ljust(64, b"\x00")
 
 
 def discover_pm3_hid_devices() -> list[str]:
