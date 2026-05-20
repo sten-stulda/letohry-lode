@@ -14,7 +14,6 @@ except ImportError:  # optional at import-time; hard fail only when HID monitor 
 from ..models import PM3Frame
 from ..services.diagnostics import DiagnosticsService
 
-GET_STATUS = 0x80
 GET_CADENCE = 0xA7
 GET_POWER = 0xB4
 PM_GET_WORKTIME = 0xA0
@@ -54,7 +53,7 @@ class PM3HIDMonitor:
         self._usb_dev: Any | None = None
         self._in_ep: int | None = None
         self._out_ep: int | None = None
-        self._report_id: int = 0x01
+        self._report_id: int = 0x02
         self._hid_uniq: str = ""
         self._last_frame = PM3Frame()
         self._read_lock = asyncio.Lock()
@@ -256,19 +255,20 @@ def _build_csafe_frame(command_payload: bytes) -> bytes:
 
 
 def _build_monitor_command_payload() -> bytes:
-    # Generic commands + PM-specific wrapped commands under 0x1A.
+    # Match PyRow ordering: PM-specific wrapped commands first, then generic commands.
+    # Every response already contains the status byte, so GET_STATUS is not needed here.
     wrapped = bytes([PM_GET_WORKTIME, PM_GET_WORKDISTANCE])
     return bytes([
-        GET_STATUS,
-        GET_CADENCE,
-        GET_POWER,
         PM_WRAPPER,
         len(wrapped),
-    ]) + wrapped
+    ]) + wrapped + bytes([
+        GET_CADENCE,
+        GET_POWER,
+    ])
 
 
 def _report_fallback_order(preferred: int) -> tuple[int, ...]:
-    ordered = [preferred, 0x01, 0x02, 0x04]
+    ordered = [preferred, 0x02, 0x04, 0x01]
     deduped: list[int] = []
     for report_id in ordered:
         if report_id not in deduped:
