@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
 
 from ..config import AppConfig
@@ -110,7 +111,13 @@ class RaceManager:
         if request.serial_ports:
             if len(set(request.serial_ports)) != len(request.serial_ports):
                 raise RuntimeError("Každá loď musí mít vybraný jiný USB port.")
-            resolved_ports = request.serial_ports
+            existing_ports = [port for port in request.serial_ports if Path(port).exists()]
+            if len(existing_ports) >= expected_pm3_count:
+                resolved_ports = existing_ports
+            else:
+                # UI can keep stale defaults (/dev/ttyUSB*) even when PM3 is on HID/USB.
+                # Fall back to autodetection instead of hard-failing on missing explicit paths.
+                resolved_ports = resolve_pm3_ports(self.config, expected_count=expected_pm3_count)
         else:
             resolved_ports = resolve_pm3_ports(self.config, expected_count=expected_pm3_count)
 

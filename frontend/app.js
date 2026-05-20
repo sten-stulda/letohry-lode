@@ -86,11 +86,15 @@ function populateSerialPortOptions(statusPayload) {
   form.serialPort1.innerHTML = options;
   form.serialPort2.innerHTML = options;
 
-  if (configuredPorts[0]) {
+  if (!discoveredPorts.length && configuredPorts[0]) {
     form.serialPort1.value = configuredPorts[0];
+  } else {
+    form.serialPort1.value = "";
   }
-  if (configuredPorts[1]) {
+  if (!discoveredPorts.length && configuredPorts[1]) {
     form.serialPort2.value = configuredPorts[1];
+  } else {
+    form.serialPort2.value = "";
   }
 }
 
