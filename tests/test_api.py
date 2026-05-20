@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.config import AppConfig, PROJECT_ROOT
@@ -153,7 +154,11 @@ def test_websocket_stream_delivers_race_updates(tmp_path: Path) -> None:
             assert "finished" in statuses
 
 
-def test_start_without_mock_and_without_devices_returns_400(tmp_path: Path) -> None:
+def test_start_without_mock_and_without_devices_returns_400(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("backend.pm3.device.discover_pm3_ports", lambda _config: [])
+    monkeypatch.setattr("backend.pm3.device.discover_pm3_hid_devices", lambda: [])
+    monkeypatch.setattr("backend.pm3.device.discover_pm3_usb_devices", lambda: [])
+
     with create_test_client(tmp_path) as client:
         response = client.post(
             "/api/start",
