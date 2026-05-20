@@ -74,7 +74,8 @@ class PM3HIDMonitor:
         async with self._read_lock:
             request = build_frame(CSAFECommand(command_id=GET_WORKOUT_DATA))
             # CSAFE command wrapped in HID output report (report ID 0x00)
-            hid_request = bytes([0x00]) + request
+            # PM3 expects a fixed 64-byte HID output report (report ID + 63 bytes padded)
+            hid_request = (bytes([0x00]) + request).ljust(64, b"\x00")
             self._log_diagnostic("tx", hid_request, "sent HID workout data request")
             try:
                 await asyncio.to_thread(self._fd.write, hid_request)
@@ -93,6 +94,14 @@ class PM3HIDMonitor:
 
             # Strip HID report ID prefix
             reply_payload = raw_reply[1:] if len(raw_reply) > 1 else raw_reply
+
+            # PM3 HID reports are fixed 64 bytes with zero padding after the CSAFE frame.
+            # Truncate at FRAME_END (0xF2) so parse_frame doesn't choke on trailing zeros.
+            frame_end_idx = reply_payload.find(0xF2)
+            if frame_end_idx == -1:
+                self._log_diagnostic("rx_empty", reply_payload, "no CSAFE frame end marker")
+                return self._last_frame
+            reply_payload = reply_payload[: frame_end_idx + 1]
 
             try:
                 self._log_diagnostic("rx", raw_reply, "raw HID reply")
